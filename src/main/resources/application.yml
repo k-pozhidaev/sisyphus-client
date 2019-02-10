@@ -1,0 +1,13 @@
+sisyphus-client:
+  url: http://127.0.0.1:8080
+  token: aW4gaW90IHMgc3RhbmRzIGZvciBzZWN1cml0eQo=
+  source-folder: ${HOME}/tmp/source
+  completed-folder: ${HOME}/tmp/completed
+server:
+  port: 8081
+
+logging:
+  level:
+    root: info
+    org.springframework: debug
+    io.pozhidaev: debug

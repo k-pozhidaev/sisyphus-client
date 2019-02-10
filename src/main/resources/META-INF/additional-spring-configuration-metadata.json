@@ -1,0 +1,23 @@
+{
+  "properties": [
+    {
+      "name": "sisyphus-client.url",
+      "type": "java.lang.String",
+      "description": "URL of file server."
+    },
+    {
+      "name": "sisyphus-client.token",
+      "type": "java.lang.String",
+      "description": "Destination token."
+    },
+    {
+      "name": "sisyphus-client.source-folder",
+      "type": "java.lang.String",
+      "description": "Files sources dir."
+    },
+    {
+      "name": "sisyphus-client.completed-folder",
+      "type": "java.lang.String",
+      "description": "Files transferred dir."
+    }
+  ] }

@@ -1,5 +1,6 @@
 package io.pozhidaev.SisyphusClient;
 
+import io.pozhidaev.SisyphusClient.services.ScheduledService;
 import io.pozhidaev.SisyphusClient.services.TusExecutorService;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -13,6 +14,9 @@ public class SisyphusClientApplicationTests {
 
 	@MockBean
 	TusExecutorService tusExecutorService;
+
+	@MockBean
+	ScheduledService scheduledService;
 
 	@Test
 	public void contextLoads() {

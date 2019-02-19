@@ -1,5 +1,5 @@
 sisyphus-client:
-  url: http://127.0.0.1:8080
+  url: http://127.0.0.1:8080/upload
   token: aW4gaW90IHMgc3RhbmRzIGZvciBzZWN1cml0eQo=
   source-folder: ${HOME}/tmp/source
   completed-folder: ${HOME}/tmp/completed

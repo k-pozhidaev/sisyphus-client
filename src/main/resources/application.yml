@@ -3,6 +3,7 @@ sisyphus-client:
   token: aW4gaW90IHMgc3RhbmRzIGZvciBzZWN1cml0eQo=
   source-folder: ${HOME}/tmp/source
   completed-folder: ${HOME}/tmp/completed
+  chunk-size: 1024
 server:
   port: 8081
 

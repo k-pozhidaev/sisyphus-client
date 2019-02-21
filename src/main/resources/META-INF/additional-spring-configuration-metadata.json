@@ -19,5 +19,10 @@
       "name": "sisyphus-client.completed-folder",
       "type": "java.lang.String",
       "description": "Files transferred dir."
+    },
+    {
+      "name": "sisyphus-client.chunk-size",
+      "type": "java.lang.Integer",
+      "description": "Description for sisyphus-client.chunk-size."
     }
   ] }

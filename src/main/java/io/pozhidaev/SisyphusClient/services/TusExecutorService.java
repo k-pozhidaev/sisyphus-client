@@ -8,8 +8,10 @@ import org.springframework.stereotype.Service;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 @Slf4j
 @Service
@@ -19,7 +21,7 @@ public class TusExecutorService extends TusExecutor {
     private Function<Path, TusUpload> tusUploadConsumer;
     private TusUpload upload;
     private Path path;
-
+    private Supplier<Integer> chunkSize;
 
     @Autowired
     public void setTusClient(final TusClient tusClient) {
@@ -31,6 +33,13 @@ public class TusExecutorService extends TusExecutor {
         this.tusUploadConsumer = tusUploadConsumer;
     }
 
+    @Autowired
+    public void setChunkSize(final Supplier<Integer> chunkSize) {
+        this.chunkSize = chunkSize;
+    }
+
+
+
     public void load(final Path path) throws ProtocolException, IOException  {
         this.path = path;
         upload = tusUploadConsumer.apply(path);
@@ -41,10 +50,12 @@ public class TusExecutorService extends TusExecutor {
     protected void makeAttempt() throws ProtocolException, IOException {
 
         log.debug(Files.probeContentType(path));
-        Objects.requireNonNull(tusClient.getHeaders())
-                .put("Mime-Type", Files.probeContentType(path));
+        final Map<String, String> headers = Objects.requireNonNull(tusClient.getHeaders());
+        headers.put("Mime-Type", Files.probeContentType(path));
+        headers.put("X-Length", chunkSize.get().toString());
+        tusClient.setHeaders(headers);
         TusUploader uploader = tusClient.resumeOrCreateUpload(upload);
-        uploader.setChunkSize(1024);
+        uploader.setChunkSize(chunkSize.get());
         do {
             long totalBytes = upload.getSize();
             long bytesUploaded = uploader.getOffset();

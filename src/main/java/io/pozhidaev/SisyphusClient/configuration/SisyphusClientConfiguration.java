@@ -23,6 +23,7 @@ import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Objects;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 @Slf4j
 @Getter
@@ -36,6 +37,8 @@ public class SisyphusClientConfiguration {
     private String sourceFolder;
     private String completedFolder;
     private String token;
+    private Integer chunkSize;
+
 
     @PostConstruct
     void onInit() throws IOException {
@@ -52,6 +55,11 @@ public class SisyphusClientConfiguration {
     @Bean
     Path sourceFolder() throws IOException {
         return pathFromStringParam(sourceFolder);
+    }
+
+    @Bean
+    Supplier<Integer> chunkSize(){
+        return () -> Objects.requireNonNull(chunkSize);
     }
 
     @Bean

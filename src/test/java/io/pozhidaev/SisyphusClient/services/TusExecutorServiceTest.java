@@ -16,9 +16,13 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 @RunWith(SpringRunner.class)
 public class TusExecutorServiceTest {
+
+    @MockBean
+    Supplier<Integer> chunkSize;
 
     @MockBean
     TusClient tusClient;
@@ -47,6 +51,8 @@ public class TusExecutorServiceTest {
         final TusUpload upload = Mockito.mock(TusUpload.class);
         final TusUploader uploader = Mockito.mock(TusUploader.class);
 
+        Mockito.when(chunkSize.get()).thenReturn(1024);
+
         Mockito.when(tusClient.getHeaders())
             .thenReturn(new HashMap<>());
         Mockito.when(tusUploadConsumer.apply(tempFile))
@@ -55,7 +61,6 @@ public class TusExecutorServiceTest {
         Mockito.when(tusClient.resumeOrCreateUpload(upload))
             .thenReturn(uploader);
 
-        Mockito.doNothing().when(uploader).setChunkSize(1024);
 
         Mockito.when(uploader.uploadChunk()).thenReturn(-1);
         Mockito.when(uploader.getUploadURL()).thenReturn(new URL("http://test/1"));
@@ -63,6 +68,7 @@ public class TusExecutorServiceTest {
         final TusExecutorService tusExecutorService = new TusExecutorService();
         tusExecutorService.setTusClient(tusClient);
         tusExecutorService.setTusUploadConsumer(tusUploadConsumer);
+        tusExecutorService.setChunkSize(chunkSize);
         tusExecutorService.load(tempFile);
     }
 

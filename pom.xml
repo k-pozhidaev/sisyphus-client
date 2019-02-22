@@ -84,6 +84,11 @@
 						</goals>
 					</execution>
 				</executions>
+				<configuration>
+					<excludes>
+						<exclude>io.pozhidaev.SisyphusClient.SisyphusClientApplication#main</exclude>
+					</excludes>
+				</configuration>
 			</plugin>
 		</plugins>
 	</build>

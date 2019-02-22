@@ -62,6 +62,7 @@ public class TusExecutorServiceTest {
             .thenReturn(uploader);
 
 
+        Mockito.when(uploader.uploadChunk()).thenReturn(0);
         Mockito.when(uploader.uploadChunk()).thenReturn(-1);
         Mockito.when(uploader.getUploadURL()).thenReturn(new URL("http://test/1"));
 
@@ -72,7 +73,4 @@ public class TusExecutorServiceTest {
         tusExecutorService.load(tempFile);
     }
 
-    @Test
-    public void makeAttempt() {
-    }
 }

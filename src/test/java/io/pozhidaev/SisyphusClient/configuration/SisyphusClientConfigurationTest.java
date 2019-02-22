@@ -122,4 +122,11 @@ public class SisyphusClientConfigurationTest {
         sisyphusClientConfiguration.setToken(sisyphusClientConfiguration.getToken());
 
     }
+
+    @Test
+    public void getChunkSize() {
+        final SisyphusClientConfiguration sisyphusClientConfiguration = new SisyphusClientConfiguration();
+        sisyphusClientConfiguration.setChunkSize(15);
+        assertEquals(sisyphusClientConfiguration.chunkSize().get().toString(), Objects.toString(15));
+    }
 }

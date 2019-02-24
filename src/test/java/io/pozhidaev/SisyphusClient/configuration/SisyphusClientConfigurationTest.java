@@ -26,6 +26,7 @@ public class SisyphusClientConfigurationTest {
         final SisyphusClientConfiguration sisyphusClientConfiguration = new SisyphusClientConfiguration();
         sisyphusClientConfiguration.setCompletedFolder(test_onInit + "/c");
         sisyphusClientConfiguration.setSourceFolder(test_onInit + "/s");
+        sisyphusClientConfiguration.onInit();
     }
 
     @Test(expected = IOException.class)

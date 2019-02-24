@@ -21,36 +21,54 @@ public class ScheduledServiceTest {
     @MockBean
     TusExecutorService tusExecutorService;
 
+
     @Test
     public void filesExistingTask() throws IOException {
+
         final Path source = Files.createTempDirectory("test_s");
         final Path completed = Files.createTempDirectory("test_c");
+        final ScheduledService service = new ScheduledService(
+            source,
+            completed,
+            tusExecutorService
+        );
+        Files.createFile(Paths.get(source.toString(), "test1"));
+        service.filesExistingTask();
+    }
 
-
+    @Test
+    public void filesExistingTask_isNotDirectory() throws IOException {
+        final Path source = Files.createTempDirectory("test_s");
+        final Path completed = Files.createTempDirectory("test_c");
 
         final ScheduledService service = new ScheduledService(
             source,
             completed,
             tusExecutorService
         );
-
-        Files.createFile(Paths.get(source.toString(), "test1"));
-        Set<PosixFilePermission> readOnly = PosixFilePermissions.fromString("r--r--r--");
-        Files.createFile(Paths.get(source.toString(), "test2"), PosixFilePermissions.asFileAttribute(readOnly));
         Files.createDirectory(Paths.get(source.toString(), "test3"));
         service.filesExistingTask();
     }
 
     @Test
-    public void filesExistingTask_exception() throws IOException {
+    public void filesExistingTask_isNotDirectory_1() throws IOException {
+        final Path source = Files.createTempDirectory("test_s");
+        final Path completed = Files.createTempDirectory("test_c");
 
-        Set<PosixFilePermission> readOnly = PosixFilePermissions.fromString("r--r--r--");
-        final FileAttribute<Set<PosixFilePermission>> fileAttribute = PosixFilePermissions.asFileAttribute(readOnly);
+        final ScheduledService service = new ScheduledService(
+            source,
+            completed,
+            tusExecutorService
+        );
+        Files.createFile(Paths.get(source.toString(), "test2"), fileAttributeWriteOnly());
+        service.filesExistingTask();
+    }
+
+    @Test
+    public void filesExistingTask_isReadable() throws IOException {
 
         final Path source = Files.createTempDirectory("test_s");
-        final Path completed = Files.createTempDirectory("test_c", fileAttribute);
-
-
+        final Path completed = Files.createTempDirectory("test_c", fileAttributeReadOnly());
 
         final ScheduledService service = new ScheduledService(
             source,
@@ -61,4 +79,16 @@ public class ScheduledServiceTest {
         Files.createFile(Paths.get(source.toString(), "test1"));
         service.filesExistingTask();
     }
+
+    private FileAttribute<Set<PosixFilePermission>> fileAttributeReadOnly(){
+        Set<PosixFilePermission> readOnly = PosixFilePermissions.fromString("r--r--r--");
+        return PosixFilePermissions.asFileAttribute(readOnly);
+    }
+
+    private FileAttribute<Set<PosixFilePermission>> fileAttributeWriteOnly(){
+        Set<PosixFilePermission> readOnly = PosixFilePermissions.fromString("-w--w--w-");
+        return PosixFilePermissions.asFileAttribute(readOnly);
+    }
+
+
 }

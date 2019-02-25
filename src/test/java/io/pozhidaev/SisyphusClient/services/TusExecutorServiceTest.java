@@ -18,6 +18,8 @@ import java.util.HashMap;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
+import static org.mockito.Mockito.*;
+
 @RunWith(SpringRunner.class)
 public class TusExecutorServiceTest {
 
@@ -51,20 +53,16 @@ public class TusExecutorServiceTest {
         final TusUpload upload = Mockito.mock(TusUpload.class);
         final TusUploader uploader = Mockito.mock(TusUploader.class);
 
-        Mockito.when(chunkSize.get()).thenReturn(1024);
+        when(chunkSize.get()).thenReturn(1024);
 
-        Mockito.when(tusClient.getHeaders())
-            .thenReturn(new HashMap<>());
-        Mockito.when(tusUploadConsumer.apply(tempFile))
-            .thenReturn(upload);
+        when(tusClient.getHeaders()).thenReturn(new HashMap<>());
+        when(tusUploadConsumer.apply(tempFile)).thenReturn(upload);
 
-        Mockito.when(tusClient.resumeOrCreateUpload(upload))
-            .thenReturn(uploader);
+        when(tusClient.resumeOrCreateUpload(upload)).thenReturn(uploader);
 
+        when(uploader.uploadChunk()).thenReturn(80).thenReturn(-6);
 
-        Mockito.when(uploader.uploadChunk()).thenReturn(0);
-        Mockito.when(uploader.uploadChunk()).thenReturn(-1);
-        Mockito.when(uploader.getUploadURL()).thenReturn(new URL("http://test/1"));
+        when(uploader.getUploadURL()).thenReturn(new URL("http://test/1"));
 
         final TusExecutorService tusExecutorService = new TusExecutorService();
         tusExecutorService.setTusClient(tusClient);

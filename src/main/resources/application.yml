@@ -12,3 +12,7 @@ logging:
     root: info
     org.springframework: debug
     io.pozhidaev: debug
+sun:
+  net:
+    http:
+      allowRestrictedHeaders: true

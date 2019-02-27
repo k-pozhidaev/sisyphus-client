@@ -52,7 +52,7 @@ public class TusExecutorService extends TusExecutor {
         log.debug(Files.probeContentType(path));
         final Map<String, String> headers = Objects.requireNonNull(tusClient.getHeaders());
         headers.put("Mime-Type", Files.probeContentType(path));
-        headers.put("X-Length", chunkSize.get().toString());
+        headers.put("Content-Length", "10000");
         tusClient.setHeaders(headers);
         TusUploader uploader = tusClient.resumeOrCreateUpload(upload);
         uploader.setChunkSize(chunkSize.get());

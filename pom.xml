@@ -59,8 +59,9 @@
 			<scope>test</scope>
 		</dependency>
 		<dependency>
-			<groupId>org.reactivestreams</groupId>
-			<artifactId>reactive-streams</artifactId>
+			<groupId>org.springframework</groupId>
+			<artifactId>spring-webflux</artifactId>
+			<version>5.1.4.RELEASE</version>
 		</dependency>
 	</dependencies>
 

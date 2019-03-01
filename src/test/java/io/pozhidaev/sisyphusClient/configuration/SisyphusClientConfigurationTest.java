@@ -1,4 +1,4 @@
-package io.pozhidaev.SisyphusClient.configuration;
+package io.pozhidaev.sisyphusClient.configuration;
 
 import io.tus.java.client.TusClient;
 import org.junit.Test;

@@ -1,10 +1,9 @@
-package io.pozhidaev.SisyphusClient.services;
+package io.pozhidaev.sisyphusClient.services;
 
 import io.tus.java.client.ProtocolException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -37,7 +36,7 @@ public class ScheduledService {
     }
 
 
-    @Scheduled(fixedDelay = 1000)
+//    @Scheduled(fixedDelay = 1000)
     void filesExistingTask() throws IOException {
         Files.walk(sourceFolder)
             .filter(e -> !e.equals(sourceFolder))

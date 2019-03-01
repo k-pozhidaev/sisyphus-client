@@ -1,4 +1,4 @@
-package io.pozhidaev.SisyphusClient.services;
+package io.pozhidaev.sisyphusClient.services;
 
 import io.tus.java.client.ProtocolException;
 import io.tus.java.client.TusClient;

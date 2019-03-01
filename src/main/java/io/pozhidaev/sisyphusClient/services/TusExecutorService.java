@@ -1,4 +1,4 @@
-package io.pozhidaev.SisyphusClient.services;
+package io.pozhidaev.sisyphusClient.services;
 
 import io.tus.java.client.*;
 import lombok.extern.slf4j.Slf4j;

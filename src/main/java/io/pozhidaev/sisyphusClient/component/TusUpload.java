@@ -1,4 +1,4 @@
-package io.pozhidaev.SisyphusClient.component;
+package io.pozhidaev.sisyphusClient.component;
 
 import org.springframework.web.reactive.function.client.WebClient;
 
@@ -6,7 +6,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-public class TusUpload<T> implements Upload {
+public class TusUpload implements Upload {
 
     private WebClient client;
     private Path path;
@@ -16,9 +16,12 @@ public class TusUpload<T> implements Upload {
         this.path = path;
     }
 
+    public void setClient(WebClient client) {
+        this.client = client;
+    }
+
     @Override
     public void start() {
-
     }
 
     protected String calcFingerprint()  {
@@ -30,13 +33,17 @@ public class TusUpload<T> implements Upload {
         }
     }
 
-    protected void head(T fingerprint){}
+    protected void head(String fingerprint){
 
-    protected void post(){}
 
-    protected void post(T fingerprint){}
+    }
 
-    protected void patch(T fingerprint){}
+    protected void post(){
+        patch("");
+    }
 
-    protected void options(){}
+//    protected void post(String fingerprint){}
+
+    protected void patch(String fingerprint){}
+
 }

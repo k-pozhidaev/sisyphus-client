@@ -1,4 +1,4 @@
-package io.pozhidaev.SisyphusClient.component;
+package io.pozhidaev.sisyphusClient.component;
 
 import java.nio.file.Path;
 

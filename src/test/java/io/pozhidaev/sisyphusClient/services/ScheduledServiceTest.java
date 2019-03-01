@@ -1,4 +1,4 @@
-package io.pozhidaev.SisyphusClient.services;
+package io.pozhidaev.sisyphusClient.services;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;

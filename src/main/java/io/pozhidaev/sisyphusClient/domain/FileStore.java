@@ -1,4 +1,4 @@
-package io.pozhidaev.SisyphusClient.domain;
+package io.pozhidaev.sisyphusClient.domain;
 
 import java.util.HashMap;
 import java.util.Map;

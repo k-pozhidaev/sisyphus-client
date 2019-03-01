@@ -1,4 +1,4 @@
-package io.pozhidaev.SisyphusClient.configuration;
+package io.pozhidaev.sisyphusClient.configuration;
 
 import io.tus.java.client.TusClient;
 import io.tus.java.client.TusURLMemoryStore;
@@ -10,6 +10,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.web.reactive.function.client.WebClient;
 
 import javax.annotation.PostConstruct;
 import java.io.FileNotFoundException;
@@ -45,6 +46,15 @@ public class SisyphusClientConfiguration {
         if(completedFolder().equals(sourceFolder())){
             throw new IOException("Source and completed folders could not be equals");
         }
+    }
+
+    @Bean
+    WebClient webClient(){
+        return WebClient
+                .builder()
+                .baseUrl(getUrl())
+                .defaultHeaders(httpHeaders -> httpHeaders.add("X-Token", token))
+                .build();
     }
 
     @Bean

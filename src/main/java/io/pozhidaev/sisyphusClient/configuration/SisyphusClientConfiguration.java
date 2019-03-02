@@ -6,25 +6,40 @@ import io.tus.java.client.TusUpload;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.integration.channel.PublishSubscribeChannel;
+import org.springframework.integration.dsl.IntegrationFlow;
+import org.springframework.integration.dsl.IntegrationFlows;
+import org.springframework.messaging.Message;
+import org.springframework.messaging.MessageHandler;
+import org.springframework.messaging.MessagingException;
+import org.springframework.messaging.SubscribableChannel;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.FluxSink;
 
 import javax.annotation.PostConstruct;
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.nio.file.AccessDeniedException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Objects;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
+
+import static java.nio.file.Files.*;
+import static org.springframework.integration.file.dsl.Files.inboundAdapter;
+
+
 
 @Slf4j
 @Getter
@@ -58,12 +73,12 @@ public class SisyphusClientConfiguration {
     }
 
     @Bean
-    Path completedFolder() throws IOException {
+    Path completedFolder() {
         return pathFromStringParam(completedFolder);
     }
 
     @Bean
-    Path sourceFolder() throws IOException {
+    Path sourceFolder() {
         return pathFromStringParam(sourceFolder);
     }
 
@@ -97,22 +112,76 @@ public class SisyphusClientConfiguration {
         return client;
     }
 
-    private Path pathFromStringParam(final String folder) throws IOException {
+    @Bean
+    SubscribableChannel logChannel() {
+        return new PublishSubscribeChannel();
+    }
+
+    @Bean
+    IntegrationFlow fileFlow() {
+        return IntegrationFlows
+                .from(inboundAdapter(
+                        sourceFolder().toFile()).useWatchService(true),
+                        poller -> poller.poller(pm -> pm.fixedRate(1000))
+                )
+                .channel(this.logChannel())
+                .get();
+    }
+
+
+    @Bean
+    CommandLineRunner c2(){
+        return args -> {
+
+            final SubscribableChannel subscribableChannel = logChannel();
+            Flux.create((Consumer<FluxSink<Path>>) fluxSink -> {
+                final ForwardingMessageHandler handler = new ForwardingMessageHandler(fluxSink);
+                subscribableChannel.subscribe(handler);
+            })
+            .onErrorResume(Exception.class, Flux::error)
+            .doOnNext(path -> log.info("path added: {}", path))
+            .subscribe();
+        };
+    }
+
+    private Path pathFromStringParam(final String folder) {
 
         Objects.requireNonNull(folder, "Source and Completed folders can not be null.");
 
         final Path writeDirectoryPath = Paths.get(folder);
 
-        if (!Files.exists(writeDirectoryPath)) {
-            Files.createDirectories(writeDirectoryPath);
+        if (!exists(writeDirectoryPath)) {
+            try {
+                createDirectories(writeDirectoryPath);
+            } catch (IOException e) {
+                throw new RuntimeException("Directory create error.", e);
+            }
         }
 
         log.info("Source files path: {}", writeDirectoryPath);
 
-        if (!Files.isWritable(writeDirectoryPath)) {
-            throw new AccessDeniedException(folder);
+        if (!isWritable(writeDirectoryPath)) {
+            throw new RuntimeException("Directory is not writable: " + folder);
         }
         return writeDirectoryPath;
+    }
+
+
+    class ForwardingMessageHandler implements MessageHandler {
+
+        private final FluxSink<Path> sink;
+
+        ForwardingMessageHandler(FluxSink<Path> sink) {
+            this.sink = sink;
+        }
+
+        @Override
+        public void handleMessage(Message<?> message) throws MessagingException {
+
+            File strPayloadFromChannel = (File) message.getPayload();
+
+            sink.next(Paths.get(strPayloadFromChannel.getAbsolutePath()));
+        }
     }
 
 }

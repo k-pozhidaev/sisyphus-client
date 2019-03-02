@@ -66,7 +66,7 @@ public class SisyphusClientConfigurationTest {
         assertEquals(sisyphusClientConfiguration.sourceFolder(), Paths.get(test_sourceFolder.toString(), "test2"));
     }
 
-    @Test(expected = IOException.class)
+    @Test(expected = RuntimeException.class)
     public void pathFromStringParam_exception() throws IOException {
         Set<PosixFilePermission> readOnly = PosixFilePermissions.fromString("r--r--r--");
         final SisyphusClientConfiguration sisyphusClientConfiguration = new SisyphusClientConfiguration();

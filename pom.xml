@@ -97,7 +97,7 @@
 				</executions>
 				<configuration>
 					<excludes>
-						<exclude>**/io/pozhidaev/SisyphusClient/SisyphusClientApplication.*</exclude>
+						<exclude>**/io/pozhidaev/sisyphusClient/SisyphusClientApplication.*</exclude>
 					</excludes>
 				</configuration>
 			</plugin>

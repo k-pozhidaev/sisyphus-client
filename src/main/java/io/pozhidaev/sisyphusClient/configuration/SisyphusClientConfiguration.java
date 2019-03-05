@@ -30,15 +30,18 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 import static java.nio.file.Files.*;
+import static org.springframework.integration.file.FileReadingMessageSource.WatchEventType.CREATE;
+import static org.springframework.integration.file.FileReadingMessageSource.WatchEventType.MODIFY;
 import static org.springframework.integration.file.dsl.Files.inboundAdapter;
-
 
 
 @Slf4j
@@ -58,18 +61,18 @@ public class SisyphusClientConfiguration {
 
     @PostConstruct
     void onInit() throws IOException {
-        if(completedFolder().equals(sourceFolder())){
+        if (completedFolder().equals(sourceFolder())) {
             throw new IOException("Source and completed folders could not be equals");
         }
     }
 
     @Bean
-    WebClient webClient(){
+    WebClient webClient() {
         return WebClient
-                .builder()
-                .baseUrl(getUrl())
-                .defaultHeaders(httpHeaders -> httpHeaders.add("X-Token", token))
-                .build();
+            .builder()
+            .baseUrl(getUrl())
+            .defaultHeaders(httpHeaders -> httpHeaders.add("X-Token", token))
+            .build();
     }
 
     @Bean
@@ -83,12 +86,12 @@ public class SisyphusClientConfiguration {
     }
 
     @Bean
-    Supplier<Integer> chunkSize(){
+    Supplier<Integer> chunkSize() {
         return () -> Objects.requireNonNull(chunkSize);
     }
 
     @Bean
-    Function<Path, TusUpload> tusUploadConsumer(){
+    Function<Path, TusUpload> tusUploadConsumer() {
         return (final Path path) -> {
             try {
                 log.debug("Uploading file: {}", path.toAbsolutePath());
@@ -106,7 +109,7 @@ public class SisyphusClientConfiguration {
         final TusClient client = new TusClient();
         client.setUploadCreationURL(new URL(url));
         client.enableResuming(new TusURLMemoryStore());
-        client.setHeaders(new HashMap<String, String>(){{
+        client.setHeaders(new HashMap<String, String>() {{
             put("X-Token", token);
         }});
         return client;
@@ -120,17 +123,25 @@ public class SisyphusClientConfiguration {
     @Bean
     IntegrationFlow fileFlow() {
         return IntegrationFlows
-                .from(inboundAdapter(
-                        sourceFolder().toFile()).useWatchService(true),
-                        poller -> poller.poller(pm -> pm.fixedRate(1000))
-                )
-                .channel(this.logChannel())
-                .get();
+            .from(inboundAdapter(
+                sourceFolder().toFile())
+                    .useWatchService(true)
+                    .watchEvents(
+                        CREATE,
+                        MODIFY
+                    )
+                    .filter(files -> Arrays.stream(files)
+                        .filter(file -> System.currentTimeMillis() - file.lastModified() < 60_000)
+                        .collect(Collectors.toList())),
+                poller -> poller.poller(pm -> pm.fixedRate(1000))
+            )
+            .channel(this.logChannel())
+            .get();
     }
 
 
     @Bean
-    CommandLineRunner c2(){
+    CommandLineRunner c2() {
         return args -> {
 
             final SubscribableChannel subscribableChannel = logChannel();
@@ -138,9 +149,9 @@ public class SisyphusClientConfiguration {
                 final ForwardingMessageHandler handler = new ForwardingMessageHandler(fluxSink);
                 subscribableChannel.subscribe(handler);
             })
-            .onErrorResume(Exception.class, Flux::error)
-            .doOnNext(path -> log.info("path added: {}", path))
-            .subscribe();
+                .onErrorResume(Exception.class, Flux::error)
+                .doOnNext(path -> log.info("path added: {}", path))
+                .subscribe(path -> log.info("received: {}", path));
         };
     }
 

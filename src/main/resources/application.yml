@@ -11,8 +11,5 @@ logging:
   level:
     root: info
     org.springframework: debug
+    org.springframework.integration: info
     io.pozhidaev: debug
-sun:
-  net:
-    http:
-      allowRestrictedHeaders: true

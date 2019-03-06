@@ -139,21 +139,32 @@ public class SisyphusClientConfiguration {
             .get();
     }
 
-
     @Bean
-    CommandLineRunner c2() {
-        return args -> {
-
-            final SubscribableChannel subscribableChannel = logChannel();
-            Flux.create((Consumer<FluxSink<Path>>) fluxSink -> {
-                final ForwardingMessageHandler handler = new ForwardingMessageHandler(fluxSink);
-                subscribableChannel.subscribe(handler);
-            })
-                .onErrorResume(Exception.class, Flux::error)
-                .doOnNext(path -> log.info("path added: {}", path))
-                .subscribe(path -> log.info("received: {}", path));
-        };
+    Flux<Path> createdFileStream(){
+        final SubscribableChannel subscribableChannel = logChannel();
+        return Flux.create((Consumer<FluxSink<Path>>) fluxSink -> {
+            final ForwardingMessageHandler handler = new ForwardingMessageHandler(fluxSink);
+            subscribableChannel.subscribe(handler);
+        })
+            .onErrorResume(Exception.class, Flux::error)
+            .doOnNext(path -> log.info("path added: {}", path));
     }
+//
+//
+//    @Bean
+//    CommandLineRunner c2() {
+//        return args -> {
+//
+//            final SubscribableChannel subscribableChannel = logChannel();
+//            Flux.create((Consumer<FluxSink<Path>>) fluxSink -> {
+//                final ForwardingMessageHandler handler = new ForwardingMessageHandler(fluxSink);
+//                subscribableChannel.subscribe(handler);
+//            })
+//                .onErrorResume(Exception.class, Flux::error)
+//                .doOnNext(path -> log.info("path added: {}", path))
+//                .subscribe(path -> log.info("received: {}", path));
+//        };
+//    }
 
     private Path pathFromStringParam(final String folder) {
 

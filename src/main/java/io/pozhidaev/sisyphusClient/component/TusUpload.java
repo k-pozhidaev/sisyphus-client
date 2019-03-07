@@ -42,7 +42,6 @@ public class TusUpload implements Upload {
         patch("");
     }
 
-//    protected void post(String fingerprint){}
 
     protected void patch(String fingerprint){}
 

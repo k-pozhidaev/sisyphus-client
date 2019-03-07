@@ -6,7 +6,6 @@ import io.tus.java.client.TusUpload;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -27,6 +26,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.MalformedURLException;
+import java.net.URI;
 import java.net.URL;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -66,11 +66,16 @@ public class SisyphusClientConfiguration {
         }
     }
 
+    URI uploadUri(){
+        return URI.create(url);
+    }
+
     @Bean
     WebClient webClient() {
         return WebClient
             .builder()
             .baseUrl(getUrl())
+
             .defaultHeaders(httpHeaders -> httpHeaders.add("X-Token", token))
             .build();
     }
@@ -123,13 +128,10 @@ public class SisyphusClientConfiguration {
     @Bean
     IntegrationFlow fileFlow() {
         return IntegrationFlows
-            .from(inboundAdapter(
-                sourceFolder().toFile())
+            .from(
+                inboundAdapter(sourceFolder().toFile())
                     .useWatchService(true)
-                    .watchEvents(
-                        CREATE,
-                        MODIFY
-                    )
+                    .watchEvents(CREATE,MODIFY)
                     .filter(files -> Arrays.stream(files)
                         .filter(file -> System.currentTimeMillis() - file.lastModified() < 60_000)
                         .collect(Collectors.toList())),
@@ -140,7 +142,7 @@ public class SisyphusClientConfiguration {
     }
 
     @Bean
-    Flux<Path> createdFileStream(){
+    Flux<Path> createdFileStream() {
         final SubscribableChannel subscribableChannel = logChannel();
         return Flux.create((Consumer<FluxSink<Path>>) fluxSink -> {
             final ForwardingMessageHandler handler = new ForwardingMessageHandler(fluxSink);
@@ -149,22 +151,7 @@ public class SisyphusClientConfiguration {
             .onErrorResume(Exception.class, Flux::error)
             .doOnNext(path -> log.info("path added: {}", path));
     }
-//
-//
-//    @Bean
-//    CommandLineRunner c2() {
-//        return args -> {
-//
-//            final SubscribableChannel subscribableChannel = logChannel();
-//            Flux.create((Consumer<FluxSink<Path>>) fluxSink -> {
-//                final ForwardingMessageHandler handler = new ForwardingMessageHandler(fluxSink);
-//                subscribableChannel.subscribe(handler);
-//            })
-//                .onErrorResume(Exception.class, Flux::error)
-//                .doOnNext(path -> log.info("path added: {}", path))
-//                .subscribe(path -> log.info("received: {}", path));
-//        };
-//    }
+
 
     private Path pathFromStringParam(final String folder) {
 

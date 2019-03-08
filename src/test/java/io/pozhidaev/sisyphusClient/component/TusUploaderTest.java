@@ -1,7 +1,9 @@
 package io.pozhidaev.sisyphusClient.component;
 
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.Mockito;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -20,8 +22,16 @@ public class TusUploaderTest {
 
     @MockBean
     Supplier<WebClient> webClientFactoryMethod;
+    WebClient client;
+
     @MockBean
     Flux<Path> createdFileStream;
+
+    @Before
+    public void onInit(){
+        client = Mockito.mock(WebClient.class);
+        Mockito.when(webClientFactoryMethod.get()).thenReturn(client);
+    }
 
 
     @Test

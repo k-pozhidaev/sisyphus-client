@@ -5,20 +5,21 @@ import lombok.Setter;
 import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.CommandLineRunner;
-import org.springframework.context.annotation.Bean;
-import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.ClientResponse;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
 
+import javax.annotation.PostConstruct;
 import java.io.IOException;
+import java.nio.channels.AsynchronousFileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+
+import static java.nio.file.StandardOpenOption.READ;
 
 
 @Slf4j
@@ -36,8 +37,10 @@ public class TusUploader {
         this.webClientFactoryMethod = webClientFactoryMethod;
     }
 
-//    @PostConstruct
-    void onInit () {
+    @PostConstruct
+    public void onInit () {
+
+
         webClientFactoryMethod
             .get()
             .options()
@@ -47,21 +50,31 @@ public class TusUploader {
             .doOnNext(o -> this.options = o)
             .thenMany(createdFileStream)
             .flatMap(path -> webClientFactoryMethod.get().post()
-                .headers(httpHeaders -> {
-                    httpHeaders.set("Upload-Length", readFileSizeQuietly(path));
-                    httpHeaders.set("Upload-Metadata", generateMetadataQuietly(path));
-                    httpHeaders.set("Mime-Type", readContentTypeQuietly(path));
-                })
-                .exchange()
+                    .headers(httpHeaders -> {
+                        httpHeaders.set("Upload-Length", readFileSizeQuietly(path));
+                        httpHeaders.set("Upload-Metadata", generateMetadataQuietly(path));
+                        httpHeaders.set("Mime-Type", readContentTypeQuietly(path));
+                    })
+                    .exchange()
             )
-            .map(clientResponse -> Objects.requireNonNull(clientResponse.headers().asHttpHeaders().getLocation()).getPath())
+            .map(clientResponse -> Objects.requireNonNull(clientResponse.headers().asHttpHeaders().getLocation()))
             .flatMap(s -> webClientFactoryMethod.get()
                 .patch()
-                .uri(u -> u.path(s).build())
+                .uri(u -> u.path(s.getPath()).build())
+//                .body()
                 .exchange()
             )
+            .subscribe()
         ;
     }
+
+//    private void v() {
+////        DataBufferFactory
+//        final Path path = Paths.get("/Users/kos/tmp/screenshot.png");
+//        final AsynchronousFileChannel channel = asynchronousFileChannelQuietly(path);
+//        DataBufferUtils.readAsynchronousFileChannel(channel, 0);
+//        webClientFactoryMethod.get().post().exchange();
+//    }
 
 
     private Options buildOptions(final ClientResponse.Headers headers){
@@ -140,6 +153,18 @@ public class TusUploader {
         ;
     }
 
+    AsynchronousFileChannel asynchronousFileChannelQuietly(final Path path){
+        try {
+            return AsynchronousFileChannel.open(path, READ);
+        } catch (IOException e) {
+            final AsynchronousFileChannelOpenException exception = new AsynchronousFileChannelOpenException(path, e);
+            log.error("File read error.", exception);
+            throw exception;
+        }
+    }
+
+
+
     static class FileSizeReadException extends RuntimeException {
 
         FileSizeReadException(Path path, Throwable cause) {
@@ -151,6 +176,12 @@ public class TusUploader {
 
         FileContentTypeReadException(Path path, Throwable cause) {
             super(String.format("File content type read exception: %s", path.toAbsolutePath()), cause);
+        }
+    }
+
+    static class AsynchronousFileChannelOpenException extends RuntimeException {
+        AsynchronousFileChannelOpenException(Path path, Throwable cause) {
+            super(String.format("File content read exception: %s", path.toAbsolutePath()), cause);
         }
     }
 

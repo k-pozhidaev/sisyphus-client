@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Base64;
+import java.util.function.Supplier;
 
 import static org.junit.Assert.*;
 
@@ -18,7 +19,7 @@ import static org.junit.Assert.*;
 public class TusUploaderTest {
 
     @MockBean
-    WebClient webClient;
+    Supplier<WebClient> webClientFactoryMethod;
     @MockBean
     Flux<Path> createdFileStream;
 
@@ -27,7 +28,7 @@ public class TusUploaderTest {
     public void generateMetadataSilencely() throws IOException {
         final Path file = Files.createTempFile("generateMetadataSilencely", " 1");
 
-        final TusUploader tusUploader = new TusUploader(webClient, createdFileStream);
+        final TusUploader tusUploader = new TusUploader(webClientFactoryMethod, createdFileStream) ;
         final String metadata = tusUploader.generateMetadataSilencely(file);
         final String encodeToString = Base64.getEncoder().encodeToString(file.getFileName().toString().getBytes());
         assertTrue(metadata.contains(encodeToString));

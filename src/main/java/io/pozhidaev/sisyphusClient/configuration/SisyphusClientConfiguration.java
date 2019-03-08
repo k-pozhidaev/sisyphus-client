@@ -10,6 +10,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Scope;
 import org.springframework.integration.channel.PublishSubscribeChannel;
 import org.springframework.integration.dsl.IntegrationFlow;
 import org.springframework.integration.dsl.IntegrationFlows;
@@ -66,16 +67,11 @@ public class SisyphusClientConfiguration {
         }
     }
 
-    URI uploadUri(){
-        return URI.create(url);
-    }
-
     @Bean
-    WebClient webClient() {
-        return WebClient
+    Supplier<WebClient> webClientFactoryMethod() {
+        return () -> WebClient
             .builder()
             .baseUrl(getUrl())
-
             .defaultHeaders(httpHeaders -> httpHeaders.add("X-Token", token))
             .build();
     }

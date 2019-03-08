@@ -5,45 +5,48 @@ import lombok.Setter;
 import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.context.annotation.Bean;
 import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.ClientResponse;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
 
-import javax.annotation.PostConstruct;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 
 @Slf4j
-@Component
+@Service
 public class TusUploader {
 
     private Options options;
 
-    private final WebClient webClient;
     private final Flux<Path> createdFileStream;
+    private final Supplier<WebClient> webClientFactoryMethod;
 
     @Autowired
-    public TusUploader(final WebClient webClient, final Flux<Path> createdFileStream) {
-        this.webClient = webClient;
+    public TusUploader(final Supplier<WebClient> webClientFactoryMethod, final Flux<Path> createdFileStream) {
         this.createdFileStream = createdFileStream;
+        this.webClientFactoryMethod = webClientFactoryMethod;
     }
 
-
-    @PostConstruct
+//    @PostConstruct
     void onInit () {
-        webClient
+        webClientFactoryMethod
+            .get()
             .options()
             .exchange()
             .map(ClientResponse::headers)
             .map(this::buildOptions)
             .doOnNext(o -> this.options = o)
             .thenMany(createdFileStream)
-            .flatMap(path -> webClient.post()
+            .flatMap(path -> webClientFactoryMethod.get().post()
                 .headers(httpHeaders -> {
                     httpHeaders.set("Upload-Length", readFileSizeSilencely(path));
                     httpHeaders.set("Upload-Metadata", generateMetadataSilencely(path));
@@ -51,14 +54,15 @@ public class TusUploader {
                 })
                 .exchange()
             )
-            .map(clientResponse -> clientResponse.headers().asHttpHeaders().getLocation().getPath())
-            .flatMap(s -> webClient
+            .map(clientResponse -> Objects.requireNonNull(clientResponse.headers().asHttpHeaders().getLocation()).getPath())
+            .flatMap(s -> webClientFactoryMethod.get()
                 .patch()
                 .uri(u -> u.path(s).build())
                 .exchange()
             )
         ;
     }
+
 
     private Options buildOptions(final ClientResponse.Headers headers){
         final Options options = new Options();

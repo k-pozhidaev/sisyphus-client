@@ -48,9 +48,9 @@ public class TusUploader {
             .thenMany(createdFileStream)
             .flatMap(path -> webClientFactoryMethod.get().post()
                 .headers(httpHeaders -> {
-                    httpHeaders.set("Upload-Length", readFileSizeSilencely(path));
-                    httpHeaders.set("Upload-Metadata", generateMetadataSilencely(path));
-                    httpHeaders.set("Mime-Type", readContentTypeSilencely(path));
+                    httpHeaders.set("Upload-Length", readFileSizeQuietly(path));
+                    httpHeaders.set("Upload-Metadata", generateMetadataQuietly(path));
+                    httpHeaders.set("Mime-Type", readContentTypeQuietly(path));
                 })
                 .exchange()
             )
@@ -107,7 +107,7 @@ public class TusUploader {
         return Optional.empty();
     }
 
-    private static String readFileSizeSilencely(final Path path) {
+    private static String readFileSizeQuietly(final Path path) {
         try {
             return String.valueOf(Files.size(path));
         } catch (IOException e) {
@@ -117,7 +117,7 @@ public class TusUploader {
         }
     }
 
-    private static String readContentTypeSilencely(final Path path) {
+    private static String readContentTypeQuietly(final Path path) {
         try {
             return Files.probeContentType(path);
         } catch (IOException e) {
@@ -128,7 +128,7 @@ public class TusUploader {
         }
     }
 
-    String generateMetadataSilencely(final Path path) {
+    String generateMetadataQuietly(final Path path) {
         Map<String, String> metadata = new HashMap<>();
         metadata.put("filename", path.getFileName().toString());
 

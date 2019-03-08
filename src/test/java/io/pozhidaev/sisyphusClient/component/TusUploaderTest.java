@@ -25,11 +25,11 @@ public class TusUploaderTest {
 
 
     @Test
-    public void generateMetadataSilencely() throws IOException {
-        final Path file = Files.createTempFile("generateMetadataSilencely", " 1");
+    public void generateMetadataQuietly() throws IOException {
+        final Path file = Files.createTempFile("generateMetadataQuietly", " 1");
 
         final TusUploader tusUploader = new TusUploader(webClientFactoryMethod, createdFileStream) ;
-        final String metadata = tusUploader.generateMetadataSilencely(file);
+        final String metadata = tusUploader.generateMetadataQuietly(file);
         final String encodeToString = Base64.getEncoder().encodeToString(file.getFileName().toString().getBytes());
         assertTrue(metadata.contains(encodeToString));
         assertTrue(metadata.contains("filename"));

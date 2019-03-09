@@ -24,15 +24,6 @@ public class TusUpload implements Upload {
     public void start() {
     }
 
-    protected String calcFingerprint()  {
-        try {
-            final long size = Files.size(path);
-            return String.format("%s-%d", path.toAbsolutePath(), size);
-        } catch (IOException e) {
-            throw new RuntimeException("File size calculation exception", e);
-        }
-    }
-
     protected void head(String fingerprint){
 
 

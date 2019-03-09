@@ -5,6 +5,9 @@ import lombok.Setter;
 import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.buffer.DataBuffer;
+import org.springframework.core.io.buffer.DataBufferUtils;
+import org.springframework.core.io.buffer.DefaultDataBufferFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.ClientResponse;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -15,6 +18,7 @@ import java.io.IOException;
 import java.nio.channels.AsynchronousFileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -38,61 +42,85 @@ public class TusUploader {
     }
 
     @PostConstruct
-    public void onInit () {
+    public void onInit() {
+        //patch:
+        //Content-Length
+        //Upload-Offset
 
+//        webClientFactoryMethod
+//            .get()
+//            .options()
+//            .exchange()
+//            .map(ClientResponse::headers)
+//            .map(this::buildOptions)
+//            .doOnNext(o -> this.options = o)
+//            .thenMany(createdFileStream)
+//            .flatMap(path -> webClientFactoryMethod.get().post()
+//                    .headers(httpHeaders -> {
+//                        httpHeaders.set("Upload-Length", readFileSizeQuietly(path));
+//                        httpHeaders.set("Upload-Metadata", generateMetadataQuietly(path));
+//                        httpHeaders.set("Mime-Type", readContentTypeQuietly(path));
+//                    })
+//                    .exchange()
+//            )
+//            .map(clientResponse -> Objects.requireNonNull(clientResponse.headers().asHttpHeaders().getLocation()))
+//            .flatMap(s -> webClientFactoryMethod.get()
+//                .patch()
+//                .uri(u -> u.path(s.getPath()).build())
+//                .body(v(), DataBuffer.class)
+//                .header("Upload-Offset", "0")
+//                .header("Content-Length", "1024")
+//                .exchange()
+//            )
+//            .subscribe()
+//        ;
 
-        webClientFactoryMethod
-            .get()
-            .options()
-            .exchange()
-            .map(ClientResponse::headers)
-            .map(this::buildOptions)
-            .doOnNext(o -> this.options = o)
-            .thenMany(createdFileStream)
-            .flatMap(path -> webClientFactoryMethod.get().post()
-                    .headers(httpHeaders -> {
-                        httpHeaders.set("Upload-Length", readFileSizeQuietly(path));
-                        httpHeaders.set("Upload-Metadata", generateMetadataQuietly(path));
-                        httpHeaders.set("Mime-Type", readContentTypeQuietly(path));
-                    })
-                    .exchange()
-            )
-            .map(clientResponse -> Objects.requireNonNull(clientResponse.headers().asHttpHeaders().getLocation()))
-            .flatMap(s -> webClientFactoryMethod.get()
-                .patch()
-                .uri(u -> u.path(s.getPath()).build())
-//                .body()
+        final Path path = Paths.get("/Users/kos/tmp/screenshot.png");
+        webClientFactoryMethod.get().post()
+                .headers(httpHeaders -> {
+                    httpHeaders.set("Upload-Length", readFileSizeQuietly(path));
+                    httpHeaders.set("Upload-Metadata", generateMetadataQuietly(path));
+                    httpHeaders.set("Mime-Type", readContentTypeQuietly(path));
+                })
                 .exchange()
-            )
-            .subscribe()
-        ;
+                .map(clientResponse -> Objects.requireNonNull(clientResponse.headers().asHttpHeaders().getLocation()))
+                .flatMap(s -> webClientFactoryMethod.get()
+                        .patch()
+                        .uri(u -> u.path(s.getPath()).build())
+                        .body(v(), DataBuffer.class)
+                        .header("Upload-Offset", "0")
+                        .header("Content-Length", "1024")
+                        .exchange()
+                )
+                .subscribe();
+
     }
 
-//    private void v() {
+    Flux<DataBuffer> v() {
 ////        DataBufferFactory
-//        final Path path = Paths.get("/Users/kos/tmp/screenshot.png");
-//        final AsynchronousFileChannel channel = asynchronousFileChannelQuietly(path);
-//        DataBufferUtils.readAsynchronousFileChannel(channel, 0);
-//        webClientFactoryMethod.get().post().exchange();
-//    }
+        final Path path = Paths.get("/Users/kos/tmp/screenshot.png");
+        final AsynchronousFileChannel channel = asynchronousFileChannelQuietly(path);
+        return DataBufferUtils.readAsynchronousFileChannel(() -> channel, 0, new DefaultDataBufferFactory(), 1024);
+
+    }
 
 
-    private Options buildOptions(final ClientResponse.Headers headers){
+    private Options buildOptions(final ClientResponse.Headers headers) {
         final Options options = new Options();
 
         getZeroElementIfExists(headers.header(Options.HEADER_NAME_RESUMABLE))
-            .ifPresent(options::setResumable);
+                .ifPresent(options::setResumable);
         getZeroElementIfExists(headers.header(Options.HEADER_NAME_VERSION))
-            .map(s -> s.split(","))
-            .map(Arrays::asList)
-            .ifPresent(options::setVersion);
+                .map(s -> s.split(","))
+                .map(Arrays::asList)
+                .ifPresent(options::setVersion);
         getZeroElementIfExists(headers.header(Options.HEADER_NAME_EXTENSION))
-            .map(s -> s.split(","))
-            .map(Arrays::asList)
-            .ifPresent(options::setExtension);
+                .map(s -> s.split(","))
+                .map(Arrays::asList)
+                .ifPresent(options::setExtension);
         getZeroElementIfExists(headers.header(Options.HEADER_NAME_MAX_SIZE))
-            .map(Long::valueOf)
-            .ifPresent(options::setMaxSize);
+                .map(Long::valueOf)
+                .ifPresent(options::setMaxSize);
         return options;
     }
 
@@ -100,7 +128,7 @@ public class TusUploader {
     @Setter
     @ToString
     @NoArgsConstructor
-    private class Options{
+    private class Options {
         public final static String HEADER_NAME_RESUMABLE = "Tus-Resumable";
         public final static String HEADER_NAME_VERSION = "Tus-Version";
         public final static String HEADER_NAME_EXTENSION = "Tus-Extension";
@@ -113,7 +141,7 @@ public class TusUploader {
 
     }
 
-    private static <T> Optional<T> getZeroElementIfExists(final List<T> list){
+    private static <T> Optional<T> getZeroElementIfExists(final List<T> list) {
         if (list.size() > 0) {
             return Optional.of(list.get(0));
         }
@@ -144,16 +172,17 @@ public class TusUploader {
     String generateMetadataQuietly(final Path path) {
         Map<String, String> metadata = new HashMap<>();
         metadata.put("filename", path.getFileName().toString());
+        metadata.put("fingerprint", calcFingerprint(path));
 
         return metadata
-            .entrySet()
-            .stream()
-            .map(e -> String.format("%s %s", e.getKey(), Base64.getEncoder().encodeToString(e.getValue().getBytes())))
-            .collect(Collectors.joining(","))
-        ;
+                .entrySet()
+                .stream()
+                .map(e -> String.format("%s %s", e.getKey(), Base64.getEncoder().encodeToString(e.getValue().getBytes())))
+                .collect(Collectors.joining(","))
+                ;
     }
 
-    AsynchronousFileChannel asynchronousFileChannelQuietly(final Path path){
+    AsynchronousFileChannel asynchronousFileChannelQuietly(final Path path) {
         try {
             return AsynchronousFileChannel.open(path, READ);
         } catch (IOException e) {
@@ -163,6 +192,9 @@ public class TusUploader {
         }
     }
 
+    String calcFingerprint(final Path path)  {
+        return String.format("%s-%s", path.toAbsolutePath(), readFileSizeQuietly(path));
+    }
 
 
     static class FileSizeReadException extends RuntimeException {

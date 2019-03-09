@@ -10,6 +10,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
 
 import java.io.IOException;
+import java.nio.channels.AsynchronousFileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Base64;
@@ -38,10 +39,23 @@ public class TusUploaderTest {
     public void generateMetadataQuietly() throws IOException {
         final Path file = Files.createTempFile("generateMetadataQuietly", " 1");
 
-        final TusUploader tusUploader = new TusUploader(webClientFactoryMethod, createdFileStream) ;
+        final TusUploader tusUploader = new TusUploader(webClientFactoryMethod, createdFileStream);
         final String metadata = tusUploader.generateMetadataQuietly(file);
         final String encodeToString = Base64.getEncoder().encodeToString(file.getFileName().toString().getBytes());
         assertTrue(metadata.contains(encodeToString));
         assertTrue(metadata.contains("filename"));
+    }
+
+    @Test
+    public void asynchronousFileChannelQuietly() throws IOException {
+
+        final Path file = Files.createTempFile("asynchronousFileChannelQuietly", " 1");
+
+        final TusUploader tusUploader = new TusUploader(webClientFactoryMethod, createdFileStream);
+
+        final AsynchronousFileChannel asynchronousFileChannel = tusUploader.asynchronousFileChannelQuietly(file);
+        assertTrue(asynchronousFileChannel.isOpen());
+        asynchronousFileChannel.close();
+
     }
 }

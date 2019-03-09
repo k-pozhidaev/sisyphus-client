@@ -8,10 +8,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.core.io.buffer.DataBufferUtils;
 import org.springframework.core.io.buffer.DefaultDataBufferFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.ClientResponse;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import javax.annotation.PostConstruct;
 import java.io.IOException;
@@ -83,14 +85,17 @@ public class TusUploader {
                     httpHeaders.set("Mime-Type", readContentTypeQuietly(path));
                 })
                 .exchange()
+                .doOnNext(TusUploader::accept)
                 .map(clientResponse -> Objects.requireNonNull(clientResponse.headers().asHttpHeaders().getLocation()))
-                .flatMap(s -> webClientFactoryMethod.get()
+                .flatMap(uri -> webClientFactoryMethod.get()
                         .patch()
-                        .uri(u -> u.path(s.getPath()).build())
+                        .uri(uri)
                         .body(v(), DataBuffer.class)
                         .header("Upload-Offset", "0")
                         .header("Content-Length", "1024")
+                        .header("Content-Type", "application/offset+octet-stream")
                         .exchange()
+                        .doOnNext(TusUploader::accept)
                 )
                 .subscribe();
 
@@ -192,10 +197,21 @@ public class TusUploader {
         }
     }
 
-    String calcFingerprint(final Path path)  {
+    String calcFingerprint(final Path path) {
         return String.format("%s-%s", path.toAbsolutePath(), readFileSizeQuietly(path));
     }
 
+    private static void accept(ClientResponse cr) {
+        if (cr.statusCode().is4xxClientError()) {
+            throw new RuntimeException("Rewrite client!");
+        }
+        if (cr.statusCode().is5xxServerError()) {
+            throw new RuntimeException("Server fucked up!");
+        }
+        if (cr.statusCode().value() == 201) {
+            log.debug("Succeeded post: {}.", cr.headers().asHttpHeaders().getLocation());
+        }
+    }
 
     static class FileSizeReadException extends RuntimeException {
 

@@ -105,16 +105,17 @@ public class TusUploader {
                 httpHeaders.set("Mime-Type", readContentTypeQuietly(path));
             })
             .exchange();
-        Mono.zip(startUploadMono, Mono.just(path));
 
         Mono.zip(startUploadMono, Mono.just(path))
             .doOnNext(t -> TusUploader.accept(t.getT1()))
             .map(t -> Tuples.of(
                 Objects.requireNonNull(t.getT1().headers().asHttpHeaders().getLocation()),
-                t.getT2(),
-                Flux.range(0, getChunkCount(t.getT2())))
+                t.getT2())
             )
-            .flatMapMany(t -> t.getT3().doOnNext(n -> uploadChunk(n, t.getT1(), t.getT2())))
+            .flatMapMany(t -> Flux.range(0, getChunkCount(t.getT2()))
+                .doOnNext(i -> log.info("chunk: {}, url: {}, path: {}.", i, t.getT1(), t.getT2()))
+                .flatMap(i -> uploadChunk(i, t.getT1(), t.getT2()))
+            )
             .subscribe()
             ;
 //        postMono.subscribe();

@@ -28,6 +28,9 @@ public class TusUploaderTest {
     @MockBean
     Flux<Path> createdFileStream;
 
+    @MockBean
+    Supplier<Integer> chunkSize;
+
     @Before
     public void onInit(){
         client = Mockito.mock(WebClient.class);
@@ -39,7 +42,7 @@ public class TusUploaderTest {
     public void generateMetadataQuietly() throws IOException {
         final Path file = Files.createTempFile("generateMetadataQuietly", " 1");
 
-        final TusUploader tusUploader = new TusUploader(webClientFactoryMethod, createdFileStream);
+        final TusUploader tusUploader = new TusUploader();
         final String metadata = tusUploader.generateMetadataQuietly(file);
         final String encodeToString = Base64.getEncoder().encodeToString(file.getFileName().toString().getBytes());
         assertTrue(metadata.contains(encodeToString));
@@ -51,11 +54,20 @@ public class TusUploaderTest {
 
         final Path file = Files.createTempFile("asynchronousFileChannelQuietly", " 1");
 
-        final TusUploader tusUploader = new TusUploader(webClientFactoryMethod, createdFileStream);
+        final TusUploader tusUploader = new TusUploader();
 
         final AsynchronousFileChannel asynchronousFileChannel = tusUploader.asynchronousFileChannelQuietly(file);
         assertTrue(asynchronousFileChannel.isOpen());
         asynchronousFileChannel.close();
+
+    }
+
+    @Test
+    public void calcFingerprint() throws IOException {
+        final Path file = Files.createTempFile("asynchronousFileChannelQuietly", " 1");
+        Files.write(file, "Test,test,test".getBytes());
+        final TusUploader tusUploader = new TusUploader();
+        assertTrue(tusUploader.calcFingerprint(file).contains("14"));
 
     }
 }

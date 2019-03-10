@@ -8,15 +8,17 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.core.io.buffer.DataBufferUtils;
 import org.springframework.core.io.buffer.DefaultDataBufferFactory;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.ClientResponse;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.util.function.Tuple3;
+import reactor.util.function.Tuples;
 
 import javax.annotation.PostConstruct;
 import java.io.IOException;
+import java.net.URI;
 import java.nio.channels.AsynchronousFileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -34,13 +36,23 @@ public class TusUploader {
 
     private Options options;
 
-    private final Flux<Path> createdFileStream;
-    private final Supplier<WebClient> webClientFactoryMethod;
+    private Flux<Path> createdFileStream;
+    private Supplier<WebClient> webClientFactoryMethod;
+    private Supplier<Integer> chunkSize;
 
     @Autowired
-    public TusUploader(final Supplier<WebClient> webClientFactoryMethod, final Flux<Path> createdFileStream) {
+    public void setCreatedFileStream(Flux<Path> createdFileStream) {
         this.createdFileStream = createdFileStream;
+    }
+
+    @Autowired
+    public void setWebClientFactoryMethod(Supplier<WebClient> webClientFactoryMethod) {
         this.webClientFactoryMethod = webClientFactoryMethod;
+    }
+
+    @Autowired
+    public void setChunkSize(Supplier<Integer> chunkSize) {
+        this.chunkSize = chunkSize;
     }
 
     @PostConstruct
@@ -52,7 +64,7 @@ public class TusUploader {
 //        webClientFactoryMethod
 //            .get()
 //            .options()
-//            .exchange()
+//            .startUploadMono()
 //            .map(ClientResponse::headers)
 //            .map(this::buildOptions)
 //            .doOnNext(o -> this.options = o)
@@ -63,50 +75,76 @@ public class TusUploader {
 //                        httpHeaders.set("Upload-Metadata", generateMetadataQuietly(path));
 //                        httpHeaders.set("Mime-Type", readContentTypeQuietly(path));
 //                    })
-//                    .exchange()
+//                    .startUploadMono()
 //            )
 //            .map(clientResponse -> Objects.requireNonNull(clientResponse.headers().asHttpHeaders().getLocation()))
 //            .flatMap(s -> webClientFactoryMethod.get()
 //                .patch()
 //                .uri(u -> u.path(s.getPath()).build())
-//                .body(v(), DataBuffer.class)
+//                .body(pathToBuffer(), DataBuffer.class)
 //                .header("Upload-Offset", "0")
 //                .header("Content-Length", "1024")
-//                .exchange()
+//                .startUploadMono()
 //            )
 //            .subscribe()
 //        ;
 
-        final Path path = Paths.get("/Users/kos/tmp/screenshot.png");
-        webClientFactoryMethod.get().post()
-                .headers(httpHeaders -> {
-                    httpHeaders.set("Upload-Length", readFileSizeQuietly(path));
-                    httpHeaders.set("Upload-Metadata", generateMetadataQuietly(path));
-                    httpHeaders.set("Mime-Type", readContentTypeQuietly(path));
-                })
-                .exchange()
-                .doOnNext(TusUploader::accept)
-                .map(clientResponse -> Objects.requireNonNull(clientResponse.headers().asHttpHeaders().getLocation()))
-                .flatMap(uri -> webClientFactoryMethod.get()
-                        .patch()
-                        .uri(uri)
-                        .body(v(), DataBuffer.class)
-                        .header("Upload-Offset", "0")
-                        .header("Content-Length", "1024")
-                        .header("Content-Type", "application/offset+octet-stream")
-                        .exchange()
-                        .doOnNext(TusUploader::accept)
-                )
-                .subscribe();
+
+//        t.getT1().
+//                .map(cr -> Objects.requireNonNull(cr.headers().asHttpHeaders().getLocation()))
+//            .flatMap(uri -> uploadChunk(uri)
+//                .doOnNext(TusUploader::accept)
+//            )
+        final Path path = Paths.get("/Users/i337731/.v8flags.5.5.372.42.i337731.json");
+
+
+        final Mono<ClientResponse> startUploadMono = webClientFactoryMethod.get().post()
+            .headers(httpHeaders -> {
+                httpHeaders.set("Upload-Length", readFileSizeQuietly(path).toString());
+                httpHeaders.set("Upload-Metadata", generateMetadataQuietly(path));
+                httpHeaders.set("Mime-Type", readContentTypeQuietly(path));
+            })
+            .exchange();
+        Mono.zip(startUploadMono, Mono.just(path));
+
+        Mono.zip(startUploadMono, Mono.just(path))
+            .doOnNext(t -> TusUploader.accept(t.getT1()))
+            .map(t -> Tuples.of(
+                Objects.requireNonNull(t.getT1().headers().asHttpHeaders().getLocation()),
+                t.getT2(),
+                Flux.range(0, getChunkCount(t.getT2())))
+            )
+            .flatMapMany(t -> t.getT3().doOnNext(n -> uploadChunk(n, t.getT1(), t.getT2())))
+            .subscribe()
+            ;
+//        postMono.subscribe();
 
     }
 
-    Flux<DataBuffer> v() {
-////        DataBufferFactory
-        final Path path = Paths.get("/Users/kos/tmp/screenshot.png");
-        final AsynchronousFileChannel channel = asynchronousFileChannelQuietly(path);
-        return DataBufferUtils.readAsynchronousFileChannel(() -> channel, 0, new DefaultDataBufferFactory(), 1024);
+    int getChunkCount (final Path path) {
+        return Long.valueOf(readFileSizeQuietly(path) / chunkSize.get()).intValue() + 1;
+    }
 
+    Mono<ClientResponse> uploadChunk(final long chunk, final URI uri, final Path path) {
+        return pathToBuffer(chunk, path).flatMap(t -> webClientFactoryMethod.get()
+            .patch()
+            .uri(uri)
+            .body(t.getT1(), DataBuffer.class)
+            .header("Upload-Offset", t.getT3().toString())
+            .header("Content-Length", t.getT2().toString())
+            .header("Content-Type", "application/offset+octet-stream")
+            .exchange());
+    }
+
+    Mono<Tuple3<Flux<DataBuffer>, Integer, Long>> pathToBuffer(final long chunk, final Path path) {
+        final int integer = chunkSize.get();
+        final AsynchronousFileChannel channel = asynchronousFileChannelQuietly(path);
+        final Flux<DataBuffer> bufferFlux = DataBufferUtils.readAsynchronousFileChannel(() -> channel, chunk * integer, new DefaultDataBufferFactory(), integer);
+        return Mono.zip(
+            Mono.just(bufferFlux),
+            bufferFlux.map(DataBuffer::capacity).reduce(Integer::sum),
+            Mono.just(chunk)
+        );
     }
 
 
@@ -114,18 +152,18 @@ public class TusUploader {
         final Options options = new Options();
 
         getZeroElementIfExists(headers.header(Options.HEADER_NAME_RESUMABLE))
-                .ifPresent(options::setResumable);
+            .ifPresent(options::setResumable);
         getZeroElementIfExists(headers.header(Options.HEADER_NAME_VERSION))
-                .map(s -> s.split(","))
-                .map(Arrays::asList)
-                .ifPresent(options::setVersion);
+            .map(s -> s.split(","))
+            .map(Arrays::asList)
+            .ifPresent(options::setVersion);
         getZeroElementIfExists(headers.header(Options.HEADER_NAME_EXTENSION))
-                .map(s -> s.split(","))
-                .map(Arrays::asList)
-                .ifPresent(options::setExtension);
+            .map(s -> s.split(","))
+            .map(Arrays::asList)
+            .ifPresent(options::setExtension);
         getZeroElementIfExists(headers.header(Options.HEADER_NAME_MAX_SIZE))
-                .map(Long::valueOf)
-                .ifPresent(options::setMaxSize);
+            .map(Long::valueOf)
+            .ifPresent(options::setMaxSize);
         return options;
     }
 
@@ -153,9 +191,9 @@ public class TusUploader {
         return Optional.empty();
     }
 
-    private static String readFileSizeQuietly(final Path path) {
+    private static Long readFileSizeQuietly(final Path path) {
         try {
-            return String.valueOf(Files.size(path));
+            return Files.size(path);
         } catch (IOException e) {
             final FileSizeReadException exception = new FileSizeReadException(path, e);
             log.error("Reading file size error.", exception);
@@ -180,11 +218,11 @@ public class TusUploader {
         metadata.put("fingerprint", calcFingerprint(path));
 
         return metadata
-                .entrySet()
-                .stream()
-                .map(e -> String.format("%s %s", e.getKey(), Base64.getEncoder().encodeToString(e.getValue().getBytes())))
-                .collect(Collectors.joining(","))
-                ;
+            .entrySet()
+            .stream()
+            .map(e -> String.format("%s %s", e.getKey(), Base64.getEncoder().encodeToString(e.getValue().getBytes())))
+            .collect(Collectors.joining(","))
+            ;
     }
 
     AsynchronousFileChannel asynchronousFileChannelQuietly(final Path path) {

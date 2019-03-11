@@ -4,6 +4,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.core.io.buffer.DataBufferUtils;
@@ -16,7 +17,6 @@ import reactor.core.publisher.Mono;
 import reactor.util.function.Tuple3;
 import reactor.util.function.Tuples;
 
-import javax.annotation.PostConstruct;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.channels.AsynchronousFileChannel;
@@ -32,7 +32,7 @@ import static java.nio.file.StandardOpenOption.READ;
 
 @Slf4j
 @Service
-public class TusUploader {
+public class TusUploader implements InitializingBean {
 
     private Options options;
 
@@ -55,8 +55,8 @@ public class TusUploader {
         this.chunkSize = chunkSize;
     }
 
-    @PostConstruct
-    public void onInit() {
+    @Override
+    public void afterPropertiesSet() throws Exception {
         //patch:
         //Content-Length
         //Upload-Offset
@@ -108,17 +108,12 @@ public class TusUploader {
 
         Mono.zip(startUploadMono, Mono.just(path))
             .doOnNext(t -> TusUploader.accept(t.getT1()))
-            .map(t -> Tuples.of(
-                Objects.requireNonNull(t.getT1().headers().asHttpHeaders().getLocation()),
-                t.getT2())
-            )
+            .map(t -> t.mapT1(cr -> cr.headers().asHttpHeaders().getLocation()))
             .flatMapMany(t -> Flux.range(0, getChunkCount(t.getT2()))
                 .doOnNext(i -> log.info("chunk: {}, url: {}, path: {}.", i, t.getT1(), t.getT2()))
-                .flatMap(i -> uploadChunk(i, t.getT1(), t.getT2()))
+                .flatMap(i -> uploadChunk(i, t.getT1(), t.getT2()).doOnNext(TusUploader::accept))
             )
-            .subscribe()
-            ;
-//        postMono.subscribe();
+            .subscribe();
 
     }
 
@@ -138,13 +133,19 @@ public class TusUploader {
     }
 
     Mono<Tuple3<Flux<DataBuffer>, Integer, Long>> pathToBuffer(final long chunk, final Path path) {
-        final int integer = chunkSize.get();
+        final int chunkSize = this.chunkSize.get();
+        final long offset = chunk * chunkSize;
+        final long tailSize = readFileSizeQuietly(path) - offset;
+
+        log.info("offset {}, tailSize {}, readFileSizeQuietly(path) {}", offset, tailSize, readFileSizeQuietly(path));
+
         final AsynchronousFileChannel channel = asynchronousFileChannelQuietly(path);
-        final Flux<DataBuffer> bufferFlux = DataBufferUtils.readAsynchronousFileChannel(() -> channel, chunk * integer, new DefaultDataBufferFactory(), integer);
+        final Flux<DataBuffer> bufferFlux = DataBufferUtils.readAsynchronousFileChannel(() -> channel, offset, new DefaultDataBufferFactory(), chunkSize);
+
         return Mono.zip(
             Mono.just(bufferFlux),
-            bufferFlux.map(DataBuffer::capacity).reduce(Integer::sum),
-            Mono.just(chunk)
+            Mono.fromSupplier(() -> tailSize < chunkSize ? (int) tailSize : chunkSize),
+            Mono.just(offset)
         );
     }
 

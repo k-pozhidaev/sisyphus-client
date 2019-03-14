@@ -4,7 +4,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.InitializingBean;
+import org.apache.logging.log4j.util.Strings;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
@@ -16,6 +16,7 @@ import org.springframework.web.reactive.function.client.ClientResponse;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.util.function.Tuple2;
 import reactor.util.function.Tuple3;
 import reactor.util.function.Tuples;
 
@@ -29,7 +30,6 @@ import java.util.*;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
 
 import static java.nio.file.StandardOpenOption.READ;
 
@@ -97,7 +97,7 @@ public class TusUploader implements ApplicationRunner {
 //        t.getT1().
 //                .map(cr -> Objects.requireNonNull(cr.headers().asHttpHeaders().getLocation()))
 //            .flatMap(uri -> uploadChunk(uri)
-//                .doOnNext(TusUploader::accept)
+//                .doOnNext(TusUploader::handleResponse)
 //            )
         final Path path = Paths.get("/Users/i337731/.v8flags.5.5.372.42.i337731.json");
 
@@ -109,39 +109,44 @@ public class TusUploader implements ApplicationRunner {
                 httpHeaders.set("Mime-Type", readContentTypeQuietly(path));
             })
             .exchange()
-            .doOnNext(TusUploader::accept)
-            .map(cr -> cr.headers().asHttpHeaders().getLocation())
-            ;
+            .doOnNext(this::handleResponse)
+            .map(cr -> cr.headers().asHttpHeaders().getLocation());
 
-//        Mono.zip(startUploadMono, Mono.just(path))
-//            .flatMapMany(t -> Flux.range(0, getChunkCount(t.getT2()))
-//                .doOnNext(i -> log.info("chunk: {}, url: {}, path: {}.", i, t.getT1(), t.getT2()))
-//                .flatMap(i -> uploadChunk(i, t.getT1(), t.getT2()))
-//            )
-//            .subscribe();
         Mono.zip(startUploadMono, Mono.just(path))
             .map(t -> Tuples.of(t.getT1(), t.getT2(), t.getT2()))
             .map(t -> t.mapT3(p -> IntStream.range(0, getChunkCount(p))))
             .flatMap(t -> t.getT3().mapToObj(o -> uploadChunk(o, t.getT1(), t.getT2())).reduce(Mono::then).orElse(Mono.empty()))
-        .subscribe()
+//            .flatMap(t -> uploadChunk(0, t.getT1(), t.getT2()))
+//            //TODO debug code
+            .subscribe()
         ;
+
+
+//        uploadChunk(0, URI.create("http://localhost:8080/upload/21"), path).subscribe();
+//        dataBufferFlux(0, path).doOnNext(dataBuffer -> log.info("SIZE: {}", dataBuffer.capacity())).subscribe();
+//        log.info("test");
     }
 
-    int getChunkCount (final Path path) {
+    int getChunkCount(final Path path) {
         return Long.valueOf(readFileSizeQuietly(path) / chunkSize.get()).intValue() + 1;
     }
 
     Mono<Long> uploadChunk(final long chunk, final URI uri, final Path path) {
-        return pathToBuffer(chunk, path).flatMap(t -> webClientFactoryMethod.get()
+
+        final int chunkSize = this.chunkSize.get();
+        final long offset = chunk * chunkSize;
+        final long tailSize = readFileSizeQuietly(path) - offset;
+        final int contentLength = tailSize < chunkSize ? (int) tailSize : chunkSize;
+
+        return webClientFactoryMethod.get()
             .patch()
             .uri(uri)
-            .body(t.getT1(), DataBuffer.class)
-            .header("Upload-Offset", t.getT3().toString())
-            .header("Content-Length", t.getT2().toString())
+            .body(dataBufferFlux(chunk, path), DataBuffer.class)
+            .header("Upload-Offset", Objects.toString(offset))
+            .header("Content-Length", Objects.toString(contentLength))
             .header("Content-Type", "application/offset+octet-stream")
-            .exchange())
+            .exchange()
             .doOnNext(cr -> log.info("Status: {}, chunk {} ", cr.rawStatusCode(), chunk))
-            .doOnNext(TusUploader::accept)
             .map(ClientResponse::headers)
             .map(h -> h.header("Upload-Offset"))
             .map(Collection::stream)
@@ -150,7 +155,17 @@ public class TusUploader implements ApplicationRunner {
             ;
     }
 
-    Mono<Tuple3<Flux<DataBuffer>, Integer, Long>> pathToBuffer(final long chunk, final Path path) {
+    Flux<DataBuffer> dataBufferFlux(final long chunk, final Path path) {
+        final int chunkSize = this.chunkSize.get();
+        final long offset = chunk * chunkSize;
+        final AsynchronousFileChannel channel = asynchronousFileChannelQuietly(path);
+        return DataBufferUtils.takeUntilByteCount(
+            DataBufferUtils.readAsynchronousFileChannel(() -> channel, offset, new DefaultDataBufferFactory(), 256),
+            chunkSize
+        );
+    }
+
+    Mono<Tuple2<Integer, Long>> pathToBuffer(final long chunk, final Path path) {
         final int chunkSize = this.chunkSize.get();
         final long offset = chunk * chunkSize;
         final long tailSize = readFileSizeQuietly(path) - offset;
@@ -162,11 +177,8 @@ public class TusUploader implements ApplicationRunner {
             readFileSizeQuietly(path)
         );
 
-        final AsynchronousFileChannel channel = asynchronousFileChannelQuietly(path);
-        final Flux<DataBuffer> bufferFlux = DataBufferUtils.readAsynchronousFileChannel(() -> channel, offset, new DefaultDataBufferFactory(), chunkSize);
 
         return Mono.zip(
-            Mono.just(bufferFlux),
             Mono.fromSupplier(() -> tailSize < chunkSize ? (int) tailSize : chunkSize),
             Mono.just(offset)
         );
@@ -264,16 +276,23 @@ public class TusUploader implements ApplicationRunner {
         return String.format("%s-%s", path.toAbsolutePath(), readFileSizeQuietly(path));
     }
 
-    private static void accept(ClientResponse cr) {
+    private void handleResponse(final ClientResponse cr) {
         if (cr.statusCode().is4xxClientError()) {
-            throw new RuntimeException("Rewrite client!");
+            handleError(cr, new RuntimeException("Rewrite client!"));
+
         }
         if (cr.statusCode().is5xxServerError()) {
-            throw new RuntimeException("Server fucked up!");
+            handleError(cr, new RuntimeException("Server fucked up!"));
         }
         if (cr.statusCode().value() == 201) {
             log.debug("Succeeded post: {}.", cr.headers().asHttpHeaders().getLocation());
         }
+    }
+
+    private void handleError(final ClientResponse cr, final RuntimeException error) {
+        log.error("TUS error response:", error);
+        cr.headers().asHttpHeaders().forEach((s, strings) ->
+            log.info("Header {}, value {}.", s, Strings.join(strings, ',')));
     }
 
     static class FileSizeReadException extends RuntimeException {

@@ -273,7 +273,22 @@ public class TusUploader implements ApplicationRunner {
     }
 
     String calcFingerprint(final Path path) {
-        return String.format("%s-%s", path.toAbsolutePath(), readFileSizeQuietly(path));
+        return String.format(
+                "%s-%s-%d",
+                path.toAbsolutePath(),
+                readFileSizeQuietly(path),
+                readLastModifiedQuietly(path)
+        );
+    }
+
+    long readLastModifiedQuietly(final Path path){
+        try {
+            return Files.getLastModifiedTime(path).toMillis();
+        } catch (IOException e) {
+            final RuntimeException exception = new RuntimeException("", e);
+            log.error("Reading content type error.", exception);
+            throw exception;
+        }
     }
 
     private void handleResponse(final ClientResponse cr) {

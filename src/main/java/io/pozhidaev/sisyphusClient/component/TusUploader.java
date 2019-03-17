@@ -65,46 +65,24 @@ public class TusUploader implements ApplicationRunner {
         //Content-Length
         //Upload-Offset
 
-//        webClientFactoryMethod
-//            .get()
-//            .options()
-//            .startUploadMono()
-//            .map(ClientResponse::headers)
-//            .map(this::buildOptions)
-//            .doOnNext(o -> this.options = o)
-//            .thenMany(createdFileStream)
-//            .flatMap(path -> webClientFactoryMethod.get().post()
-//                    .headers(httpHeaders -> {
-//                        httpHeaders.set("Upload-Length", readFileSizeQuietly(path));
-//                        httpHeaders.set("Upload-Metadata", generateMetadataQuietly(path));
-//                        httpHeaders.set("Mime-Type", readContentTypeQuietly(path));
-//                    })
-//                    .startUploadMono()
-//            )
-//            .map(clientResponse -> Objects.requireNonNull(clientResponse.headers().asHttpHeaders().getLocation()))
-//            .flatMap(s -> webClientFactoryMethod.get()
-//                .patch()
-//                .uri(u -> u.path(s.getPath()).build())
-//                .body(pathToBuffer(), DataBuffer.class)
-//                .header("Upload-Offset", "0")
-//                .header("Content-Length", "1024")
-//                .startUploadMono()
-//            )
-//            .subscribe()
-//        ;
 
 
-//        t.getT1().
-//                .map(cr -> Objects.requireNonNull(cr.headers().asHttpHeaders().getLocation()))
-//            .flatMap(uri -> uploadChunk(uri)
-//                .doOnNext(TusUploader::handleResponse)
-//            )
+        final Flux<Path> uriFlux = webClientFactoryMethod
+            .get()
+            .options()
+            .exchange()
+            .map(ClientResponse::headers)
+            .map(this::buildOptions)
+            .doOnNext(o -> this.options = o)
+            .thenMany(createdFileStream)
+            ;
+
         final Path path = Paths.get("/Users/i337731/.v8flags.5.5.372.42.i337731.json");
 
 
         final Mono<URI> startUploadMono = webClientFactoryMethod.get().post()
             .headers(httpHeaders -> {
-                httpHeaders.set("Upload-Length", readFileSizeQuietly(path).toString());
+                httpHeaders.set("Upload-Length", Objects.toString(readFileSizeQuietly(path)));
                 httpHeaders.set("Upload-Metadata", generateMetadataQuietly(path));
                 httpHeaders.set("Mime-Type", readContentTypeQuietly(path));
             })
@@ -116,8 +94,6 @@ public class TusUploader implements ApplicationRunner {
             .map(t -> Tuples.of(t.getT1(), t.getT2(), t.getT2()))
             .map(t -> t.mapT3(p -> IntStream.range(0, getChunkCount(p))))
             .flatMap(t -> t.getT3().mapToObj(o -> uploadChunk(o, t.getT1(), t.getT2())).reduce(Mono::then).orElse(Mono.empty()))
-//            .flatMap(t -> uploadChunk(0, t.getT1(), t.getT2()))
-//            //TODO debug code
             .subscribe()
         ;
 
@@ -228,7 +204,7 @@ public class TusUploader implements ApplicationRunner {
         return Optional.empty();
     }
 
-    private static Long readFileSizeQuietly(final Path path) {
+    private static long readFileSizeQuietly(final Path path) {
         try {
             return Files.size(path);
         } catch (IOException e) {

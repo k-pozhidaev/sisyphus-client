@@ -1,5 +1,6 @@
 package io.pozhidaev.sisyphusClient.configuration;
 
+import io.pozhidaev.sisyphusClient.component.TusdUpload;
 import io.tus.java.client.TusClient;
 import io.tus.java.client.TusURLMemoryStore;
 import io.tus.java.client.TusUpload;
@@ -10,7 +11,6 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Scope;
 import org.springframework.integration.channel.PublishSubscribeChannel;
 import org.springframework.integration.dsl.IntegrationFlow;
 import org.springframework.integration.dsl.IntegrationFlows;
@@ -27,7 +27,6 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.MalformedURLException;
-import java.net.URI;
 import java.net.URL;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -65,6 +64,12 @@ public class SisyphusClientConfiguration {
         if (completedFolder().equals(sourceFolder())) {
             throw new IOException("Source and completed folders could not be equals");
         }
+    }
+
+    @Bean
+    TusdUpload.TusdUploadBuilder tusdUploadBuilder (Supplier<WebClient> webClientFactoryMethod) {
+        return TusdUpload.builder()
+            .client(webClientFactoryMethod.get());
     }
 
     @Bean

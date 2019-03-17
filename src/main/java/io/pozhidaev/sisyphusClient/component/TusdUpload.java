@@ -1,12 +1,14 @@
 package io.pozhidaev.sisyphusClient.component;
 
+import lombok.Builder;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-public class TusUpload implements Upload {
+@Builder
+public class TusdUpload implements Upload {
 
     private WebClient client;
     private Path path;

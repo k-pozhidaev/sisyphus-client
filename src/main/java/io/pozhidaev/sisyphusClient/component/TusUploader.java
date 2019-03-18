@@ -76,7 +76,7 @@ public class TusUploader implements ApplicationRunner {
 
 //        final Mono<Long> uploadChain = Mono.zip(startUploadMono, Mono.just(path))
 //                .map(t -> Tuples.of(t.getT1(), t.getT2(), t.getT2()))
-//                .map(t -> t.mapT3(p -> IntStream.range(0, getChunkCount(p))))
+//                .map(t -> t.mapT3(p -> IntStream.range(0, calcChunkCount(p))))
 //                .flatMap(t -> t.getT3().mapToObj(o -> uploadChunk(o, t.getT1(), t.getT2())).reduce(Mono::then).orElse(Mono.empty()));
 //            .subscribe()
 

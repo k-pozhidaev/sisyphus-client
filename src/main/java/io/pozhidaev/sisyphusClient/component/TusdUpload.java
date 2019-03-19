@@ -17,6 +17,7 @@ import java.nio.channels.AsynchronousFileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -52,10 +53,18 @@ public class TusdUpload {
     }
 
     public Mono<Long> patchChain(final URI patchUri){
+//        500, 1000, 2000, 3000
         return IntStream.range(0, calcChunkCount())
             .mapToObj(chunk -> patch(chunk, patchUri))
             .reduce(Mono::then)
             .orElse(Mono.empty());
+    }
+
+    public void retryablePatch(final Integer chunk, final URI patchUri){
+//        IntStream.of(500, 1000, 2000, 3000);
+        final AtomicInteger tryNum = new AtomicInteger(0);
+
+//        patch(chunk, patchUri).re
     }
 
     public Mono<Long> patch(final Integer chunk, final URI patchUri){
@@ -72,6 +81,7 @@ public class TusdUpload {
             .header("Content-Type", "application/offset+octet-stream")
             .exchange()
             .doOnNext(cr -> log.info("Status: {}, chunk {} ", cr.rawStatusCode(), chunk))
+            .doOnNext(this::handleResponse)
             .map(ClientResponse::headers)
             .map(h -> h.header("Upload-Offset"))
             .map(Collection::stream)

@@ -18,6 +18,7 @@ import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageHandler;
 import org.springframework.messaging.MessagingException;
 import org.springframework.messaging.SubscribableChannel;
+import org.springframework.util.Assert;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
@@ -57,6 +58,7 @@ public class SisyphusClientConfiguration {
     private String completedFolder;
     private String token;
     private Integer chunkSize;
+    private Integer[] intervals;
 
 
     @PostConstruct
@@ -69,11 +71,14 @@ public class SisyphusClientConfiguration {
     @Bean
     TusdUpload.TusdUploadBuilder tusdUploadBuilder (Supplier<WebClient> webClientFactoryMethod) {
         return TusdUpload.builder()
+            .intervals(intervals)
             .client(webClientFactoryMethod.get());
     }
 
     @Bean
     Supplier<WebClient> webClientFactoryMethod() {
+
+        Assert.isTrue(intervals.length != 0, () -> "sisyphus-client.intervals cannot be empty");
         return () -> WebClient
             .builder()
             .baseUrl(getUrl())

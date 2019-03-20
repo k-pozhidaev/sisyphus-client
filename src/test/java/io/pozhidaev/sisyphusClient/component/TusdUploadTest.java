@@ -1,6 +1,8 @@
 package io.pozhidaev.sisyphusClient.component;
 
+import org.junit.Assert;
 import org.junit.Test;
+import reactor.core.publisher.Mono;
 
 import java.io.IOException;
 import java.nio.channels.AsynchronousFileChannel;
@@ -68,5 +70,11 @@ public class TusdUploadTest {
         assertTrue(asynchronousFileChannel.isOpen());
         asynchronousFileChannel.close();
 
+    }
+
+    @Test(expected = RuntimeException.class)
+    public void tryItOut(){
+        Assert.assertEquals(Mono.just(1).block(), Integer.valueOf(1));
+        Mono.error(new RuntimeException("nice try")).block();
     }
 }

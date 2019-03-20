@@ -6,6 +6,7 @@ import org.apache.logging.log4j.util.Strings;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.core.io.buffer.DataBufferUtils;
 import org.springframework.core.io.buffer.DefaultDataBufferFactory;
+import org.springframework.util.Assert;
 import org.springframework.web.reactive.function.client.ClientResponse;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
@@ -16,6 +17,7 @@ import java.net.URI;
 import java.nio.channels.AsynchronousFileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
@@ -30,6 +32,7 @@ public class TusdUpload {
     private WebClient client;
     private Path path;
     private Integer chunkSize;
+    private Integer[] intervals;
 
 
     public void setFile(final Path path) {
@@ -60,11 +63,17 @@ public class TusdUpload {
             .orElse(Mono.empty());
     }
 
-    public void retryablePatch(final Integer chunk, final URI patchUri){
-//        IntStream.of(500, 1000, 2000, 3000);
-        final AtomicInteger tryNum = new AtomicInteger(0);
-
-//        patch(chunk, patchUri).re
+    public long retryablePatch(final Integer chunk, final URI patchUri){
+        int tryNum = -1;
+        long uploadedLength = Long.MIN_VALUE;
+        while (tryNum != intervals.length) {
+            Mono<Long> empty = Mono.empty();
+            if (tryNum != -1) empty = empty.then(Mono.delay(Duration.ofSeconds(intervals[tryNum])));
+            uploadedLength = Objects.requireNonNull(empty.then(patch(chunk, patchUri)).block());
+            if (uploadedLength != Long.MIN_VALUE) return uploadedLength;
+            tryNum++;
+        }
+        return uploadedLength;
     }
 
     public Mono<Long> patch(final Integer chunk, final URI patchUri){
@@ -81,13 +90,12 @@ public class TusdUpload {
             .header("Content-Type", "application/offset+octet-stream")
             .exchange()
             .doOnNext(cr -> log.info("Status: {}, chunk {} ", cr.rawStatusCode(), chunk))
-            .doOnNext(this::handleResponse)
             .map(ClientResponse::headers)
             .map(h -> h.header("Upload-Offset"))
             .map(Collection::stream)
             .map(s -> s.findFirst().orElseThrow(TusUploader.TusNotComplientExeption::new))
-            .map(Long::valueOf);
-//        patch.retryWhen(throwableFlux -> {})
+            .map(Long::valueOf)
+            .onErrorReturn(Long.MIN_VALUE);
         return patch;
     }
 
@@ -103,21 +111,13 @@ public class TusdUpload {
 
      void handleResponse(final ClientResponse cr) {
         if (cr.statusCode().isError()) {
-            handleError(cr, cr.statusCode().getReasonPhrase());
+            final FileUploadException exception = new FileUploadException(cr);
+            log.error("TUS error response:", exception);
+            throw exception;
         }
         log.debug("Succeeded post: {}.", cr.headers().asHttpHeaders().getLocation());
     }
 
-    void handleError(final ClientResponse cr, final String errorMessage) {
-        final RuntimeException exception = new RuntimeException(errorMessage);
-        log.error("TUS error response:", exception);
-        cr.headers().asHttpHeaders().forEach((headerKey, header) -> log.info(
-                "Header {}, value {}.",
-                headerKey,
-                Strings.join(header, ',')
-        ));
-        throw exception;
-    }
 
     int calcChunkCount() {
         return Long.valueOf(readFileSizeQuietly() / chunkSize).intValue() + 1;

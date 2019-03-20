@@ -24,5 +24,10 @@
       "name": "sisyphus-client.chunk-size",
       "type": "java.lang.Integer",
       "description": "Description for sisyphus-client.chunk-size."
+    },
+    {
+      "name": "sisyphus-client.intervals",
+      "type": "java.lang.Integer[]",
+      "description": "Description for sisyphus-client.intervals."
     }
   ] }

@@ -56,9 +56,8 @@ public class TusdUpload {
     }
 
     public Mono<Long> patchChain(final URI patchUri){
-//        500, 1000, 2000, 3000
         return IntStream.range(0, calcChunkCount())
-            .mapToObj(chunk -> patch(chunk, patchUri))
+            .mapToObj(chunk -> Mono.fromCallable(() -> retryablePatch(chunk, patchUri)))
             .reduce(Mono::then)
             .orElse(Mono.empty());
     }
@@ -66,22 +65,27 @@ public class TusdUpload {
     public long retryablePatch(final Integer chunk, final URI patchUri){
         int tryNum = -1;
         long uploadedLength = Long.MIN_VALUE;
-        while (tryNum != intervals.length) {
-            Mono<Long> empty = Mono.empty();
-            if (tryNum != -1) empty = empty.then(Mono.delay(Duration.ofSeconds(intervals[tryNum])));
-            uploadedLength = Objects.requireNonNull(empty.then(patch(chunk, patchUri)).block());
+        while (tryNum < intervals.length) {
+            Mono<Long> longMono = Mono.empty();
+            if (tryNum != -1)
+                longMono = longMono.then(Mono.delay(Duration.ofSeconds(intervals[tryNum])));
+            uploadedLength = Objects.requireNonNull(
+                longMono.then(patch(chunk, patchUri))
+                    .map(r -> r.statusCode().isError() ? patchErrorHandling(r) : uploadedLengthFromResponse(r))
+                    .block()
+            );
             if (uploadedLength != Long.MIN_VALUE) return uploadedLength;
             tryNum++;
         }
         return uploadedLength;
     }
 
-    public Mono<Long> patch(final Integer chunk, final URI patchUri){
+    public Mono<ClientResponse> patch(final Integer chunk, final URI patchUri){
         final long offset = chunk * chunkSize;
         final long tailSize = readFileSizeQuietly() - offset;
         final int contentLength = tailSize < chunkSize ? (int) tailSize : chunkSize;
 
-        final Mono<Long> patch = client
+        return client
             .patch()
             .uri(patchUri)
             .body(dataBufferFlux(chunk), DataBuffer.class)
@@ -89,14 +93,21 @@ public class TusdUpload {
             .header("Content-Length", Objects.toString(contentLength))
             .header("Content-Type", "application/offset+octet-stream")
             .exchange()
-            .doOnNext(cr -> log.info("Status: {}, chunk {} ", cr.rawStatusCode(), chunk))
-            .map(ClientResponse::headers)
-            .map(h -> h.header("Upload-Offset"))
-            .map(Collection::stream)
-            .map(s -> s.findFirst().orElseThrow(TusUploader.TusNotComplientExeption::new))
+            .doOnNext(cr -> log.info("Status: {}, chunk {} ", cr.rawStatusCode(), chunk));
+    }
+
+    long patchErrorHandling(final ClientResponse response){
+        log.error("File upload error {}, with code {}", response.statusCode().getReasonPhrase(), response.rawStatusCode());
+        return Long.MIN_VALUE;
+    }
+
+    long uploadedLengthFromResponse(final ClientResponse response) {
+        return response.headers()
+            .header("Upload-Offset")
+            .stream()
+            .findFirst()
             .map(Long::valueOf)
-            .onErrorReturn(Long.MIN_VALUE);
-        return patch;
+            .orElse(Long.MIN_VALUE);
     }
 
 

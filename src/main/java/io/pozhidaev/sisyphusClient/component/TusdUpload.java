@@ -2,11 +2,9 @@ package io.pozhidaev.sisyphusClient.component;
 
 import lombok.Builder;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.logging.log4j.util.Strings;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.core.io.buffer.DataBufferUtils;
 import org.springframework.core.io.buffer.DefaultDataBufferFactory;
-import org.springframework.util.Assert;
 import org.springframework.web.reactive.function.client.ClientResponse;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
@@ -19,11 +17,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.*;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static java.nio.file.StandardOpenOption.READ;
+import static java.util.Objects.requireNonNull;
 
 @Slf4j
 @Builder
@@ -44,7 +42,7 @@ public class TusdUpload {
     }
 
 
-    public Mono<ClientResponse> post(){
+    Mono<ClientResponse> post(){
         return client.post()
                 .headers(httpHeaders -> {
                     httpHeaders.set("Upload-Length", Objects.toString(readFileSizeQuietly()));
@@ -55,32 +53,35 @@ public class TusdUpload {
                 .doOnNext(this::handleResponse);
     }
 
-    public Mono<Long> patchChain(final URI patchUri){
+    Mono<Long> patchChain(final URI patchUri){
         return IntStream.range(0, calcChunkCount())
             .mapToObj(chunk -> Mono.fromCallable(() -> retryablePatch(chunk, patchUri)))
             .reduce(Mono::then)
             .orElse(Mono.empty());
     }
 
-    public long retryablePatch(final Integer chunk, final URI patchUri){
+    long retryablePatch(final Integer chunk, final URI patchUri){
         int tryNum = -1;
         long uploadedLength = Long.MIN_VALUE;
         while (tryNum < intervals.length) {
             Mono<Long> longMono = Mono.empty();
             if (tryNum != -1)
-                longMono = longMono.then(Mono.delay(Duration.ofSeconds(intervals[tryNum])));
-            uploadedLength = Objects.requireNonNull(
+                longMono = longMono.then(Mono.delay(Duration.ofMillis(intervals[tryNum])));
+            uploadedLength = requireNonNull(
                 longMono.then(patch(chunk, patchUri))
                     .map(r -> r.statusCode().isError() ? patchErrorHandling(r) : uploadedLengthFromResponse(r))
                     .block()
             );
-            if (uploadedLength != Long.MIN_VALUE) return uploadedLength;
+            if (uploadedLength != Long.MIN_VALUE) break;
             tryNum++;
         }
+
+//        if (uploadedLength == Long.MIN_VALUE)
+//            throw new FileUploadException(); TODO Throw on fail
         return uploadedLength;
     }
 
-    public Mono<ClientResponse> patch(final Integer chunk, final URI patchUri){
+    Mono<ClientResponse> patch(final Integer chunk, final URI patchUri){
         final long offset = chunk * chunkSize;
         final long tailSize = readFileSizeQuietly() - offset;
         final int contentLength = tailSize < chunkSize ? (int) tailSize : chunkSize;

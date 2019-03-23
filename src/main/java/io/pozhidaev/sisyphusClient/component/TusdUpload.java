@@ -20,6 +20,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import static io.pozhidaev.sisyphusClient.component.FileUploadException.Type.EMPTY_INTERVALS;
 import static java.nio.file.StandardOpenOption.READ;
 import static java.util.Objects.requireNonNull;
 
@@ -55,30 +56,26 @@ public class TusdUpload {
 
     Mono<Long> patchChain(final URI patchUri){
         return IntStream.range(0, calcChunkCount())
-            .mapToObj(chunk -> Mono.fromCallable(() -> retryablePatch(chunk, patchUri)))
+            .mapToObj(chunk -> Mono.fromCallable(() -> retrialPatch(chunk, patchUri)))
             .reduce(Mono::then)
             .orElse(Mono.empty());
     }
 
-    long retryablePatch(final Integer chunk, final URI patchUri){
+    long retrialPatch(final Integer chunk, final URI patchUri){
         int tryNum = -1;
-        long uploadedLength = Long.MIN_VALUE;
         while (tryNum < intervals.length) {
             Mono<Long> longMono = Mono.empty();
             if (tryNum != -1)
                 longMono = longMono.then(Mono.delay(Duration.ofMillis(intervals[tryNum])));
-            uploadedLength = requireNonNull(
-                longMono.then(patch(chunk, patchUri))
-                    .map(r -> r.statusCode().isError() ? patchErrorHandling(r) : uploadedLengthFromResponse(r))
-                    .block()
+            final ClientResponse response = requireNonNull(
+                longMono.then(patch(chunk, patchUri)).block()
             );
-            if (uploadedLength != Long.MIN_VALUE) break;
+            if (!response.statusCode().isError()) return uploadedLengthFromResponse(response);
             tryNum++;
+            if (tryNum == intervals.length) throw new FileUploadException(response);
         }
+        throw new FileUploadException(EMPTY_INTERVALS);
 
-//        if (uploadedLength == Long.MIN_VALUE)
-//            throw new FileUploadException(); TODO Throw on fail
-        return uploadedLength;
     }
 
     Mono<ClientResponse> patch(final Integer chunk, final URI patchUri){
@@ -97,10 +94,6 @@ public class TusdUpload {
             .doOnNext(cr -> log.info("Status: {}, chunk {} ", cr.rawStatusCode(), chunk));
     }
 
-    long patchErrorHandling(final ClientResponse response){
-        log.error("File upload error {}, with code {}", response.statusCode().getReasonPhrase(), response.rawStatusCode());
-        return Long.MIN_VALUE;
-    }
 
     long uploadedLengthFromResponse(final ClientResponse response) {
         return response.headers()

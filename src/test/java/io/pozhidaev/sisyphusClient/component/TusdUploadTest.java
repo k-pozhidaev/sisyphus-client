@@ -4,15 +4,18 @@ import io.pozhidaev.sisyphusClient.utils.Whitebox;
 import org.junit.Assert;
 import org.junit.Test;
 import org.mockito.Mockito;
+import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.reactive.function.client.ClientResponse;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.io.IOException;
 import java.lang.reflect.Array;
 import java.net.URI;
 import java.nio.channels.AsynchronousFileChannel;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
@@ -58,7 +61,7 @@ public class TusdUploadTest {
     }
 
 
-    @Test(expected =  NullPointerException.class)
+    @Test(expected = NullPointerException.class)
     public void generateMetadataQuietly_nullPointerException() throws IOException {
         final Path file = Files.createTempFile("generateMetadataQuietly", " 1");
 
@@ -81,16 +84,10 @@ public class TusdUploadTest {
 
     }
 
-    @Test(expected = RuntimeException.class)
-    public void tryItOut(){
-        Assert.assertEquals(Mono.just(1).block(), Integer.valueOf(1));
-        Mono.error(new RuntimeException("nice try")).block();
-    }
-
     @Test
     public void retrialPatch() {
         final Integer[] intervals = {500, 1000};
-        final long res =  15;
+        final long res = 15;
         final ClientResponse clientResponse = mock(ClientResponse.class);
         when(clientResponse.statusCode())
                 .thenReturn(HttpStatus.BAD_REQUEST)
@@ -141,5 +138,26 @@ public class TusdUploadTest {
 
         tusdUpload.retrialPatch(0, uri);
 
+    }
+
+    @Test
+    public void dataBufferFlux() throws IOException {
+
+        final Path file = Files.createTempFile("asynchronousFileChannelQuietly", " 1");
+        Files.write(file, "test".getBytes());
+
+        final TusdUpload tusUploader = TusdUpload.builder().path(file).chunkSize(1024).build();
+
+        final Flux<DataBuffer> flux = tusUploader.dataBufferFlux(0);
+
+        String blockFirst = flux
+                .map(b -> {
+                    final byte[] bytes = new byte[4];
+                    b.read(bytes);
+                    return bytes;
+                })
+                .map(String::new)
+                .blockFirst();
+        assertEquals("test", blockFirst);
     }
 }

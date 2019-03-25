@@ -12,6 +12,7 @@ import org.springframework.web.reactive.function.client.ClientResponse;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.util.function.Tuples;
 
 import java.net.URI;
 import java.nio.file.Path;
@@ -54,7 +55,7 @@ public class TusUploader implements ApplicationRunner {
     @Override
     public void run(ApplicationArguments args) throws Exception {
 
-        final Flux<Path> uriFlux = webClientFactoryMethod
+        webClientFactoryMethod
             .get()
             .options()
             .exchange()
@@ -62,17 +63,21 @@ public class TusUploader implements ApplicationRunner {
             .map(this::buildOptions)
             .doOnNext(o -> this.options = o)
             .thenMany(createdFileStream)
-            ;
+            .map(path -> tusdUploadBuilder.path(path).client(webClientFactoryMethod.get()).chunkSize(chunkSize.get()).build())
+            .flatMap(TusdUpload::post)
+            .flatMap(TusdUpload::patchChain)
+            .subscribe()
+        ;
 
-        final Path path = Paths.get("/Users/i337731/.v8flags.5.5.372.42.i337731.json");
+//        final Path path = Paths.get("/Users/i337731/.v8flags.5.5.372.42.i337731.json");
 
 
-        final TusdUpload upload = tusdUploadBuilder
-                .path(path)
-                .chunkSize(chunkSize.get())
-                .build();
+//        final TusdUpload upload = tusdUploadBuilder
+//                .path(path)
+//                .chunkSize(chunkSize.get())
+//                .build();
 
-        final Mono<URI> startUploadMono = upload.post().map(cr -> cr.headers().asHttpHeaders().getLocation());
+//        final Mono<URI> startUploadMono = upload.post().map(cr -> cr.headers().asHttpHeaders().getLocation());
 
 //        final Mono<Long> uploadChain = Mono.zip(startUploadMono, Mono.just(path))
 //                .map(t -> Tuples.of(t.getT1(), t.getT2(), t.getT2()))
@@ -147,12 +152,6 @@ public class TusUploader implements ApplicationRunner {
     static class AsynchronousFileChannelOpenException extends RuntimeException {
         AsynchronousFileChannelOpenException(Path path, Throwable cause) {
             super(String.format("File content read exception: %s", path.toAbsolutePath()), cause);
-        }
-    }
-
-    static class TusNotComplientExeption extends RuntimeException {
-        TusNotComplientExeption() {
-            super("Upload offset header did not set up.");
         }
     }
 

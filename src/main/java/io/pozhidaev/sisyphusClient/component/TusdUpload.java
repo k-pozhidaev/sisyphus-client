@@ -33,6 +33,8 @@ public class TusdUpload {
     private Integer chunkSize;
     private Integer[] intervals;
 
+    private URI patchUri;
+    private long lastChunkUploaded;
 
     public void setFile(final Path path) {
         this.path = path;
@@ -43,7 +45,7 @@ public class TusdUpload {
     }
 
 
-    Mono<ClientResponse> post(){
+    Mono<TusdUpload> post(){
         return client.post()
                 .headers(httpHeaders -> {
                     httpHeaders.set("Upload-Length", Objects.toString(readFileSizeQuietly()));
@@ -51,10 +53,13 @@ public class TusdUpload {
                     httpHeaders.set("Mime-Type", readContentTypeQuietly());
                 })
                 .exchange()
-                .doOnNext(this::handleResponse);
+                .doOnNext(this::handleResponse)
+                .doOnNext(cr -> patchUri = requireNonNull(cr.headers().asHttpHeaders().getLocation()))
+                .then(Mono.just(this))
+            ;
     }
 
-    Mono<Long> patchChain(final URI patchUri){
+    Mono<Long> patchChain(){
         return IntStream.range(0, calcChunkCount())
             .mapToObj(chunk -> Mono.fromCallable(() -> retrialPatch(chunk, patchUri)))
             .reduce(Mono::then)

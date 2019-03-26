@@ -38,11 +38,16 @@ public class TusUploaderTest {
     @MockBean
     Supplier<Integer> chunkSize;
 
+
     @Before
     public void onInit(){
         client = Mockito.mock(WebClient.class);
         Mockito.when(webClientFactoryMethod.get()).thenReturn(client);
     }
+
+
+
+
 
     @Test
     @Ignore

@@ -1,5 +1,6 @@
 package io.pozhidaev.sisyphusClient.component;
 
+import io.pozhidaev.sisyphusClient.domain.*;
 import lombok.Builder;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.buffer.DataBuffer;
@@ -20,18 +21,19 @@ import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import static io.pozhidaev.sisyphusClient.component.FileUploadException.Type.EMPTY_INTERVALS;
+import static io.pozhidaev.sisyphusClient.domain.FileUploadException.Type.EMPTY_INTERVALS;
 import static java.nio.file.StandardOpenOption.READ;
 import static java.util.Objects.requireNonNull;
 
 @Slf4j
-@Builder
+@Builder(builderClassName = "Builder")
 public class TusdUpload {
 
     private WebClient client;
     private Path path;
     private Integer chunkSize;
     private Integer[] intervals;
+    private Options options;
 
     private URI patchUri;
     private long lastChunkUploaded;
@@ -89,6 +91,7 @@ public class TusdUpload {
 
     }
 
+
     Mono<ClientResponse> patch(final Integer chunk, final URI patchUri){
         final long offset = chunk * chunkSize;
         final long tailSize = readFileSizeQuietly() - offset;
@@ -143,7 +146,7 @@ public class TusdUpload {
         try {
             return Files.size(path);
         } catch (IOException e) {
-            final TusUploader.FileSizeReadException exception = new TusUploader.FileSizeReadException(path, e);
+            final FileSizeReadException exception = new FileSizeReadException(path, e);
             log.error("Reading file size error.", exception);
             throw exception;
         }
@@ -185,7 +188,7 @@ public class TusdUpload {
         try {
             return Files.probeContentType(path);
         } catch (IOException e) {
-            final TusUploader.FileContentTypeReadException exception = new TusUploader.FileContentTypeReadException(path, e);
+            final FileContentTypeReadException exception = new FileContentTypeReadException(path, e);
             log.error("Reading content type error.", exception);
             throw exception;
 
@@ -196,7 +199,7 @@ public class TusdUpload {
         try {
             return AsynchronousFileChannel.open(path, READ);
         } catch (IOException e) {
-            final TusUploader.AsynchronousFileChannelOpenException exception = new TusUploader.AsynchronousFileChannelOpenException(path, e);
+            final AsynchronousFileChannelOpenException exception = new AsynchronousFileChannelOpenException(path, e);
             log.error("File read error.", exception);
             throw exception;
         }

@@ -40,6 +40,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import static java.nio.file.Files.*;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.springframework.integration.file.FileReadingMessageSource.WatchEventType.CREATE;
 import static org.springframework.integration.file.FileReadingMessageSource.WatchEventType.MODIFY;
 import static org.springframework.integration.file.dsl.Files.inboundAdapter;
@@ -69,7 +70,8 @@ public class SisyphusClientConfiguration {
     }
 
     @Bean
-    TusdUpload.TusdUploadBuilder tusdUploadBuilder (Supplier<WebClient> webClientFactoryMethod) {
+    TusdUpload.Builder tusdUploadBuilder (Supplier<WebClient> webClientFactoryMethod) {
+        Assert.isTrue(intervals.length != 0, () -> "sisyphus-client.intervals cannot be empty");
         return TusdUpload.builder()
             .intervals(intervals)
             .client(webClientFactoryMethod.get());
@@ -77,8 +79,6 @@ public class SisyphusClientConfiguration {
 
     @Bean
     Supplier<WebClient> webClientFactoryMethod() {
-
-        Assert.isTrue(intervals.length != 0, () -> "sisyphus-client.intervals cannot be empty");
         return () -> WebClient
             .builder()
             .baseUrl(getUrl())
@@ -141,7 +141,7 @@ public class SisyphusClientConfiguration {
                     .filter(files -> Arrays.stream(files)
                         .filter(file -> System.currentTimeMillis() - file.lastModified() < 60_000)
                         .collect(Collectors.toList())),
-                poller -> poller.poller(pm -> pm.fixedRate(1000))
+                poller -> poller.poller(pm -> pm.fixedRate(1, SECONDS))
             )
             .channel(this.logChannel())
             .get();

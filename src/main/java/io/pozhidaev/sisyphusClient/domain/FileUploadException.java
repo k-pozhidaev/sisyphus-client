@@ -1,6 +1,5 @@
-package io.pozhidaev.sisyphusClient.component;
+package io.pozhidaev.sisyphusClient.domain;
 
-import lombok.Getter;
 import org.apache.logging.log4j.util.Strings;
 import org.springframework.web.reactive.function.client.ClientResponse;
 

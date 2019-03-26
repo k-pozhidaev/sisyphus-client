@@ -1,5 +1,6 @@
 package io.pozhidaev.sisyphusClient.component;
 
+import io.pozhidaev.sisyphusClient.domain.FileUploadException;
 import org.junit.Test;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.http.HttpHeaders;

@@ -68,27 +68,6 @@ public class TusUploader implements ApplicationRunner {
             .flatMap(TusdUpload::patchChain)
             .subscribe()
         ;
-
-//        final Path path = Paths.get("/Users/i337731/.v8flags.5.5.372.42.i337731.json");
-
-
-//        final TusdUpload upload = tusdUploadBuilder
-//                .path(path)
-//                .chunkSize(chunkSize.get())
-//                .build();
-
-//        final Mono<URI> startUploadMono = upload.post().map(cr -> cr.headers().asHttpHeaders().getLocation());
-
-//        final Mono<Long> uploadChain = Mono.zip(startUploadMono, Mono.just(path))
-//                .map(t -> Tuples.of(t.getT1(), t.getT2(), t.getT2()))
-//                .map(t -> t.mapT3(p -> IntStream.range(0, calcChunkCount(p))))
-//                .flatMap(t -> t.getT3().mapToObj(o -> uploadChunk(o, t.getT1(), t.getT2())).reduce(Mono::then).orElse(Mono.empty()));
-//            .subscribe()
-
-
-//        uploadChunk(0, URI.create("http://localhost:8080/upload/21"), path).subscribe();
-//        dataBufferFlux(0, path).doOnNext(dataBuffer -> log.info("SIZE: {}", dataBuffer.capacity())).subscribe();
-//        log.info("test");
     }
 
     private Options buildOptions(final ClientResponse.Headers headers) {

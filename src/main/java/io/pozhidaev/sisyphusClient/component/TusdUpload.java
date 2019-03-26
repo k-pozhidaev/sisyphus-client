@@ -178,7 +178,7 @@ public class TusdUpload {
         try {
             return Files.getLastModifiedTime(path).toMillis();
         } catch (IOException e) {
-            final RuntimeException exception = new RuntimeException("", e);
+            final FileListModifiedReadException exception = new FileListModifiedReadException(path, e);
             log.error("Reading content type error.", exception);
             throw exception;
         }

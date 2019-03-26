@@ -1,5 +1,6 @@
 package io.pozhidaev.sisyphusClient.component;
 
+import io.pozhidaev.sisyphusClient.domain.FileListModifiedReadException;
 import io.pozhidaev.sisyphusClient.domain.FileUploadException;
 import org.junit.Test;
 import org.springframework.core.io.buffer.DataBuffer;
@@ -14,6 +15,11 @@ import java.net.URI;
 import java.nio.channels.AsynchronousFileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.attribute.FileAttribute;
+import java.nio.file.attribute.PosixFilePermission;
+import java.nio.file.attribute.PosixFilePermissions;
+import java.time.LocalDateTime;
 import java.util.*;
 
 import static io.pozhidaev.sisyphusClient.utils.Whitebox.setInternalState;
@@ -155,5 +161,42 @@ public class TusdUploadTest {
                 .map(String::new)
                 .blockFirst();
         assertEquals("test", blockFirst);
+    }
+
+    @Test
+    public void readContentTypeQuietly() throws IOException {
+        final Path file = Files.createTempFile("readLastModifiedQuietly", ".html");
+
+        final TusdUpload tusUploader = TusdUpload.builder().path(file).build();
+        final String contentType = tusUploader.readContentTypeQuietly();
+        assertNull(contentType);
+    }
+
+    @Test
+    public void readLastModifiedQuietly() throws IOException {
+        final Path file = Files.createTempFile("readLastModifiedQuietly", ".html");
+
+        final TusdUpload tusUploader = TusdUpload.builder().path(file).build();
+        final long quietly = tusUploader.readLastModifiedQuietly();
+        assertNotEquals(quietly, System.nanoTime());
+
+    }
+
+    @Test(expected = FileListModifiedReadException.class)
+    public void readLastModifiedQuietly_Exception() {
+        final Path file = Paths.get("readLastModifiedQuietly_Exception");
+
+        final TusdUpload tusUploader = TusdUpload.builder().path(file).build();
+        tusUploader.readLastModifiedQuietly();
+    }
+
+    private FileAttribute<Set<PosixFilePermission>> fileAttributeReadOnly(){
+        Set<PosixFilePermission> readOnly = PosixFilePermissions.fromString("r--r--r--");
+        return PosixFilePermissions.asFileAttribute(readOnly);
+    }
+
+    private FileAttribute<Set<PosixFilePermission>> fileAttributeWriteOnly(){
+        Set<PosixFilePermission> readOnly = PosixFilePermissions.fromString("-w--w--w-");
+        return PosixFilePermissions.asFileAttribute(readOnly);
     }
 }

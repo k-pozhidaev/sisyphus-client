@@ -35,6 +35,7 @@ public class TusdUpload {
 
     private URI patchUri;
     private long lastChunkUploaded;
+    private long uploadedLength;
 
     public void setFile(final Path path) {
         this.path = path;
@@ -75,7 +76,12 @@ public class TusdUpload {
             final ClientResponse response = requireNonNull(
                 longMono.then(patch(chunk, patchUri)).block()
             );
-            if (!response.statusCode().isError()) return uploadedLengthFromResponse(response);
+            if (!response.statusCode().isError()) {
+                lastChunkUploaded = chunk;
+                final long uploaded = uploadedLengthFromResponse(response);
+                uploadedLength += uploaded;
+                return uploaded;
+            }
             tryNum++;
             if (tryNum == intervals.length) throw new FileUploadException(response);
         }

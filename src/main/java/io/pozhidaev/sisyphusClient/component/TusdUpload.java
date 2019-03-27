@@ -17,7 +17,9 @@ import java.nio.channels.AsynchronousFileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.time.temporal.TemporalUnit;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -70,22 +72,27 @@ public class TusdUpload {
     }
 
     long retrialPatch(final Integer chunk, final URI patchUri){
-        int tryNum = -1;
-        while (tryNum < intervals.length) {
-            Mono<Long> longMono = Mono.empty();
-            if (tryNum != -1)
-                longMono = longMono.then(Mono.delay(Duration.ofMillis(intervals[tryNum])));
-            final ClientResponse response = requireNonNull(
-                longMono.then(patch(chunk, patchUri)).block()
+        final ClientResponse response = requireNonNull(patch(chunk, patchUri).block());
+        if (!response.statusCode().isError()) {
+            lastChunkUploaded = chunk;
+            final long uploaded = uploadedLengthFromResponse(response);
+            uploadedLength += uploaded;
+            return uploaded;
+        }
+        int index = 0;
+        for (final Integer interval : intervals) {
+
+            final ClientResponse resp = requireNonNull(
+                Mono.delay(Duration.ofMillis(interval)).then(patch(chunk, patchUri)).block()
             );
-            if (!response.statusCode().isError()) {
+            if (!resp.statusCode().isError()) {
                 lastChunkUploaded = chunk;
-                final long uploaded = uploadedLengthFromResponse(response);
+                final long uploaded = uploadedLengthFromResponse(resp);
                 uploadedLength += uploaded;
                 return uploaded;
             }
-            tryNum++;
-            if (tryNum == intervals.length) throw new FileUploadException(response);
+            index++;
+            if (index == intervals.length) throw new FileUploadException(response);
         }
         throw new FileUploadException(EMPTY_INTERVALS);
 
@@ -115,7 +122,7 @@ public class TusdUpload {
             .stream()
             .findFirst()
             .map(Long::valueOf)
-            .orElse(Long.MIN_VALUE);
+            .orElseThrow(() -> new FileUploadException(response));
     }
 
 
@@ -136,7 +143,6 @@ public class TusdUpload {
         }
         log.debug("Succeeded post: {}.", cr.headers().asHttpHeaders().getLocation());
     }
-
 
     int calcChunkCount() {
         return Long.valueOf(readFileSizeQuietly() / chunkSize).intValue() + 1;

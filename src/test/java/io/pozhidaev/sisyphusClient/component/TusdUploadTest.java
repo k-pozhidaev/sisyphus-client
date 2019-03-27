@@ -1,6 +1,7 @@
 package io.pozhidaev.sisyphusClient.component;
 
 import io.pozhidaev.sisyphusClient.domain.FileListModifiedReadException;
+import io.pozhidaev.sisyphusClient.domain.FileSizeReadException;
 import io.pozhidaev.sisyphusClient.domain.FileUploadException;
 import org.junit.Test;
 import org.springframework.core.io.buffer.DataBuffer;
@@ -131,11 +132,29 @@ public class TusdUploadTest {
         ;
 
         final TusdUpload tusdUpload = mock(TusdUpload.class);
-        URI uri = URI.create("http://localhost:1111/u/1");
+        final URI uri = URI.create("http://localhost:1111/u/1");
         setInternalState(tusdUpload, "intervals", intervals);
 
         when(tusdUpload.patch(0, uri)).thenReturn(Mono.just(clientResponse));
         when(tusdUpload.retrialPatch(0, uri)).thenCallRealMethod();
+
+        tusdUpload.retrialPatch(0, uri);
+
+    }
+
+
+    @Test(expected = FileUploadException.class)
+    public void retrialPatch_IntervalsEmpty() {
+        final Integer[] intervals = {};
+
+        final ClientResponse clientResponse = mock(ClientResponse.class);
+        when(clientResponse.statusCode()).thenReturn(HttpStatus.BAD_REQUEST);
+
+        final URI uri = URI.create("http://localhost:1111/u/1");
+        final TusdUpload tusdUpload = mock(TusdUpload.class);
+        setInternalState(tusdUpload, "intervals", intervals);
+        when(tusdUpload.retrialPatch(0, uri)).thenCallRealMethod();
+        when(tusdUpload.patch(0, uri)).thenReturn(Mono.just(clientResponse));
 
         tusdUpload.retrialPatch(0, uri);
 
@@ -196,6 +215,58 @@ public class TusdUploadTest {
 
         final TusdUpload tusUploader = TusdUpload.builder().path(file).build();
         tusUploader.readLastModifiedQuietly();
+    }
+
+    @Test
+    public void handleResponse() {
+
+        final HttpHeaders httpHeaders = mock(HttpHeaders.class);
+        when(httpHeaders.getLocation()).thenReturn(URI.create("test"));
+
+        final ClientResponse.Headers headers = mock(ClientResponse.Headers.class);
+        when(headers.asHttpHeaders()).thenReturn(httpHeaders);
+
+        final ClientResponse response = mock(ClientResponse.class);
+        when(response.statusCode()).thenReturn(HttpStatus.CREATED);
+        when(response.headers()).thenReturn(headers);
+
+        final TusdUpload tusUploader = TusdUpload.builder().build();
+        tusUploader.handleResponse(response);
+    }
+
+    @Test(expected = FileUploadException.class)
+    public void handleResponse_Exception() {
+
+        final HttpHeaders httpHeaders = mock(HttpHeaders.class);
+        when(httpHeaders.entrySet()).thenReturn(new HashSet<>());
+
+        final ClientResponse.Headers headers = mock(ClientResponse.Headers.class);
+
+        when(headers.asHttpHeaders()).thenReturn(httpHeaders);
+
+        final ClientResponse clientResponse = mock(ClientResponse.class);
+
+        when(clientResponse.headers()).thenReturn(headers);
+        when(clientResponse.statusCode()).thenReturn(HttpStatus.BAD_REQUEST);
+
+        final TusdUpload tusUploader = TusdUpload.builder().build();
+        tusUploader.handleResponse(clientResponse);
+    }
+
+    @Test
+    public void readFileSizeQuietly() throws IOException {
+        final Path file = Files.createTempFile("readFileSizeQuietly", "qwe");
+        Files.write(file, "test".getBytes());
+        final TusdUpload tusUploader = TusdUpload.builder().path(file).build();
+        assertEquals(tusUploader.readFileSizeQuietly(), 4);
+    }
+
+    @Test(expected = FileSizeReadException.class)
+    public void readFileSizeQuietly_exception() {
+        final Path file = Paths.get("not_exists/file");
+        final TusdUpload tusUploader = TusdUpload.builder().path(file).build();
+        tusUploader.readFileSizeQuietly();
+        fail();
     }
 
     private FileAttribute<Set<PosixFilePermission>> fileAttributeReadOnly() {

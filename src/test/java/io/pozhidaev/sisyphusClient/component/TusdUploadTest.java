@@ -110,6 +110,29 @@ public class TusdUploadTest {
 
     }
 
+    @Test
+    public void retrialPatch_firstTry() {
+        final Integer[] intervals = {500, 1000};
+        final long res = 15;
+        final ClientResponse clientResponse = mock(ClientResponse.class);
+        when(clientResponse.statusCode())
+            .thenReturn(HttpStatus.CREATED);
+
+        final TusdUpload tusdUpload = mock(TusdUpload.class);
+        URI uri = URI.create("http://localhost:1111/u/1");
+        setInternalState(tusdUpload, "intervals", intervals);
+
+        when(tusdUpload.uploadedLengthFromResponse(clientResponse)).thenReturn(res);
+
+        when(tusdUpload.patch(0, uri)).thenReturn(Mono.just(clientResponse));
+
+        when(tusdUpload.retrialPatch(0, uri)).thenCallRealMethod();
+
+        final long result = tusdUpload.retrialPatch(0, uri);
+        assertEquals(result, res);
+
+    }
+
     @Test(expected = FileUploadException.class)
     public void retrialPatch_didNotPassed() {
         final Integer[] intervals = {500, 1000};

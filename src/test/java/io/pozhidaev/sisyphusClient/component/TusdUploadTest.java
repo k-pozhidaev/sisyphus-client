@@ -3,6 +3,7 @@ package io.pozhidaev.sisyphusClient.component;
 import io.pozhidaev.sisyphusClient.domain.FileListModifiedReadException;
 import io.pozhidaev.sisyphusClient.domain.FileSizeReadException;
 import io.pozhidaev.sisyphusClient.domain.FileUploadException;
+import io.pozhidaev.sisyphusClient.utils.Whitebox;
 import org.junit.Test;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.http.HttpHeaders;
@@ -21,6 +22,7 @@ import java.nio.file.attribute.FileAttribute;
 import java.nio.file.attribute.PosixFilePermission;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.util.*;
+import java.util.stream.IntStream;
 
 import static io.pozhidaev.sisyphusClient.utils.Whitebox.setInternalState;
 import static org.junit.Assert.*;
@@ -290,6 +292,21 @@ public class TusdUploadTest {
         final TusdUpload tusUploader = TusdUpload.builder().path(file).build();
         tusUploader.readFileSizeQuietly();
         fail();
+    }
+
+    @Test
+    public void patchChain(){
+        final URI patchUri = URI.create("http://test");
+        final TusdUpload tusdUpload = mock(TusdUpload.class);
+        Whitebox.setInternalState(tusdUpload, "patchUri", patchUri);
+        when(tusdUpload.calcChunkCount()).thenReturn(5);
+        final int sum = IntStream.range(0, 5)
+            .peek(chunk -> when(tusdUpload.retrialPatch(chunk, patchUri)).thenReturn((long) 64))
+            .map(o -> 64)
+            .sum();
+        when(tusdUpload.patchChain()).thenCallRealMethod();
+        assertEquals(Long.valueOf(sum), tusdUpload.patchChain().block());
+
     }
 
     private FileAttribute<Set<PosixFilePermission>> fileAttributeReadOnly() {

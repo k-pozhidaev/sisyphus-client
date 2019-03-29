@@ -10,6 +10,7 @@ import org.springframework.web.reactive.function.client.ClientResponse;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import java.io.IOException;
 import java.net.URI;
@@ -19,6 +20,7 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.time.temporal.TemporalUnit;
 import java.util.*;
+import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -66,8 +68,11 @@ public class TusdUpload {
 
     Mono<Long> patchChain(){
         return IntStream.range(0, calcChunkCount())
-            .mapToObj(chunk -> Mono.fromCallable(() -> retrialPatch(chunk, patchUri)))
-            .reduce(Mono::then)
+            .mapToObj(chunk -> (Callable<Long>) () -> retrialPatch(chunk, patchUri))
+            .map(Mono::fromCallable)
+            .map(Mono::block)
+            .reduce(Long::sum)
+            .map(Mono::just)
             .orElse(Mono.empty());
     }
 

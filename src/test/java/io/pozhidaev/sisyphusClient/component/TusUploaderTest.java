@@ -45,10 +45,6 @@ public class TusUploaderTest {
         Mockito.when(webClientFactoryMethod.get()).thenReturn(client);
     }
 
-
-
-
-
     @Test
     @Ignore
     public void makeTestFile() throws IOException {

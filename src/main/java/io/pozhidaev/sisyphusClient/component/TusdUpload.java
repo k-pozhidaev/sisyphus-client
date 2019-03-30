@@ -10,7 +10,6 @@ import org.springframework.web.reactive.function.client.ClientResponse;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Schedulers;
 
 import java.io.IOException;
 import java.net.URI;
@@ -18,10 +17,8 @@ import java.nio.channels.AsynchronousFileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
-import java.time.temporal.TemporalUnit;
 import java.util.*;
 import java.util.concurrent.Callable;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -77,7 +74,7 @@ public class TusdUpload {
     }
 
     long retrialPatch(final Integer chunk, final URI patchUri){
-        final ClientResponse response = requireNonNull(patch(chunk, patchUri).block());
+        final ClientResponse response = requireNonNull(patch(chunk, patchUri).block()); // TODO here problem
         if (!response.statusCode().isError()) {
             lastChunkUploaded = chunk;
             final long uploaded = uploadedLengthFromResponse(response);
@@ -103,6 +100,9 @@ public class TusdUpload {
 
     }
 
+    void retrialPatch(final Integer chunk, final URI patchUri, final int interval) {
+
+    }
 
     Mono<ClientResponse> patch(final Integer chunk, final URI patchUri){
         final long offset = chunk * chunkSize;

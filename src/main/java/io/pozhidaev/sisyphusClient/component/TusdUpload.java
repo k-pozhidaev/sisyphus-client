@@ -65,46 +65,50 @@ public class TusdUpload {
 
     Mono<Long> patchChain(){
         return IntStream.range(0, calcChunkCount())
-            .mapToObj(chunk -> (Callable<Long>) () -> retrialPatch(chunk, patchUri))
-            .map(Mono::fromCallable)
-            .map(Mono::block)
-            .reduce(Long::sum)
-            .map(Mono::just)
+            .peek(value -> log.info("{}", value))
+            .mapToObj(this::patch)
+            .peek(longMono -> log.info("{}",longMono))
+            .reduce((longMono, other) -> {
+                log.info("{}, {}",longMono, other);
+                log.info("--------------------------");
+                return longMono.then(other);
+            })
             .orElse(Mono.empty());
     }
 
-    long retrialPatch(final Integer chunk, final URI patchUri){
-        final ClientResponse response = requireNonNull(patch(chunk, patchUri).block()); // TODO here problem
-        if (!response.statusCode().isError()) {
-            lastChunkUploaded = chunk;
-            final long uploaded = uploadedLengthFromResponse(response);
-            uploadedLength += uploaded;
-            return uploaded;
-        }
-        int index = 0;
-        for (final Integer interval : intervals) {
+//    long retrialPatch(final Integer chunk, final URI patchUri){
+//        final ClientResponse response = requireNonNull(patch(chunk, patchUri).block()); // TODO here problem
+//        if (!response.statusCode().isError()) {
+//            lastChunkUploaded = chunk;
+//            final long uploaded = uploadedLengthFromResponse(response);
+//            uploadedLength += uploaded;
+//            return uploaded;
+//        }
+//        int index = 0;
+//        for (final Integer interval : intervals) {
+//
+//            final ClientResponse resp = requireNonNull(
+//                Mono.delay(Duration.ofMillis(interval)).then(patch(chunk, patchUri)).block()
+//            );
+//            if (!resp.statusCode().isError()) {
+//                lastChunkUploaded = chunk;
+//                final long uploaded = uploadedLengthFromResponse(resp);
+//                uploadedLength += uploaded;
+//                return uploaded;
+//            }
+//            index++;
+//            if (index == intervals.length) throw new FileUploadException(response);
+//        }
+//        throw new FileUploadException(EMPTY_INTERVALS);
+//
+//    }
 
-            final ClientResponse resp = requireNonNull(
-                Mono.delay(Duration.ofMillis(interval)).then(patch(chunk, patchUri)).block()
-            );
-            if (!resp.statusCode().isError()) {
-                lastChunkUploaded = chunk;
-                final long uploaded = uploadedLengthFromResponse(resp);
-                uploadedLength += uploaded;
-                return uploaded;
-            }
-            index++;
-            if (index == intervals.length) throw new FileUploadException(response);
-        }
-        throw new FileUploadException(EMPTY_INTERVALS);
-
+    Mono<Long> patch(final Integer chunk){
+        return patch(chunk, (byte) 0)
+            .map(r -> uploadedLength += uploadedLengthFromResponse(r));
     }
 
-    void retrialPatch(final Integer chunk, final URI patchUri, final int interval) {
-
-    }
-
-    Mono<ClientResponse> patch(final Integer chunk, final URI patchUri){
+    Mono<ClientResponse> patch(final Integer chunk, final byte attempt){
         final long offset = chunk * chunkSize;
         final long tailSize = readFileSizeQuietly() - offset;
         final int contentLength = tailSize < chunkSize ? (int) tailSize : chunkSize;
@@ -117,7 +121,15 @@ public class TusdUpload {
             .header("Content-Length", Objects.toString(contentLength))
             .header("Content-Type", "application/offset+octet-stream")
             .exchange()
-            .doOnNext(cr -> log.info("Status: {}, chunk {} ", cr.rawStatusCode(), chunk));
+            .doOnNext(cr -> log.info("Status: {}, chunk {} ", cr.rawStatusCode(), chunk))
+            .flatMap(r -> {
+                final byte nextAttempt = (byte) (attempt + 1);
+                if (intervals.length == nextAttempt) throw new FileUploadException(r);
+                if (r.statusCode().isError())
+                    return Mono.delay(Duration.ofMillis(intervals[attempt])).then(patch(chunk, nextAttempt));
+                return Mono.just(r);
+            })
+            ;
     }
 
 

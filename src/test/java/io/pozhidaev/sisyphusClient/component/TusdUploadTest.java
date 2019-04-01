@@ -4,6 +4,7 @@ import io.pozhidaev.sisyphusClient.domain.FileListModifiedReadException;
 import io.pozhidaev.sisyphusClient.domain.FileSizeReadException;
 import io.pozhidaev.sisyphusClient.domain.FileUploadException;
 import io.pozhidaev.sisyphusClient.utils.Whitebox;
+import lombok.extern.slf4j.Slf4j;
 import org.junit.Test;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.http.HttpHeaders;
@@ -28,6 +29,7 @@ import static io.pozhidaev.sisyphusClient.utils.Whitebox.setInternalState;
 import static org.junit.Assert.*;
 import static org.mockito.Mockito.*;
 
+@Slf4j
 public class TusdUploadTest {
 
     @Test
@@ -87,103 +89,103 @@ public class TusdUploadTest {
         asynchronousFileChannel.close();
 
     }
-
-    @Test
-    public void retrialPatch() {
-        final Integer[] intervals = {500, 1000};
-        final long res = 15;
-        final ClientResponse clientResponse = mock(ClientResponse.class);
-        when(clientResponse.statusCode())
-            .thenReturn(HttpStatus.BAD_REQUEST)
-            .thenReturn(HttpStatus.CREATED);
-
-        final TusdUpload tusdUpload = mock(TusdUpload.class);
-        URI uri = URI.create("http://localhost:1111/u/1");
-        setInternalState(tusdUpload, "intervals", intervals);
-
-        when(tusdUpload.uploadedLengthFromResponse(clientResponse)).thenReturn(res);
-
-        when(tusdUpload.patch(0, uri)).thenReturn(Mono.just(clientResponse));
-
-        when(tusdUpload.retrialPatch(0, uri)).thenCallRealMethod();
-
-        final long result = tusdUpload.retrialPatch(0, uri);
-        assertEquals(result, res);
-
-    }
-
-    @Test
-    public void retrialPatch_firstTry() {
-        final Integer[] intervals = {500, 1000};
-        final long res = 15;
-        final ClientResponse clientResponse = mock(ClientResponse.class);
-        when(clientResponse.statusCode())
-            .thenReturn(HttpStatus.CREATED);
-
-        final TusdUpload tusdUpload = mock(TusdUpload.class);
-        URI uri = URI.create("http://localhost:1111/u/1");
-        setInternalState(tusdUpload, "intervals", intervals);
-
-        when(tusdUpload.uploadedLengthFromResponse(clientResponse)).thenReturn(res);
-
-        when(tusdUpload.patch(0, uri)).thenReturn(Mono.just(clientResponse));
-
-        when(tusdUpload.retrialPatch(0, uri)).thenCallRealMethod();
-
-        final long result = tusdUpload.retrialPatch(0, uri);
-        assertEquals(result, res);
-
-    }
-
-    @Test(expected = FileUploadException.class)
-    public void retrialPatch_didNotPassed() {
-        final Integer[] intervals = {500, 1000};
-
-        final HttpHeaders httpHeaders = mock(HttpHeaders.class);
-        when(httpHeaders.entrySet()).thenReturn(new HashSet<>());
-
-        final ClientResponse.Headers headers = mock(ClientResponse.Headers.class);
-
-        when(headers.asHttpHeaders()).thenReturn(httpHeaders);
-
-        final ClientResponse clientResponse = mock(ClientResponse.class);
-
-        when(clientResponse.headers()).thenReturn(headers);
-
-        when(clientResponse.statusCode())
-            .thenReturn(HttpStatus.BAD_REQUEST)
-            .thenReturn(HttpStatus.BAD_REQUEST)
-            .thenReturn(HttpStatus.BAD_REQUEST)
-        ;
-
-        final TusdUpload tusdUpload = mock(TusdUpload.class);
-        final URI uri = URI.create("http://localhost:1111/u/1");
-        setInternalState(tusdUpload, "intervals", intervals);
-
-        when(tusdUpload.patch(0, uri)).thenReturn(Mono.just(clientResponse));
-        when(tusdUpload.retrialPatch(0, uri)).thenCallRealMethod();
-
-        tusdUpload.retrialPatch(0, uri);
-
-    }
-
-
-    @Test(expected = FileUploadException.class)
-    public void retrialPatch_IntervalsEmpty() {
-        final Integer[] intervals = {};
-
-        final ClientResponse clientResponse = mock(ClientResponse.class);
-        when(clientResponse.statusCode()).thenReturn(HttpStatus.BAD_REQUEST);
-
-        final URI uri = URI.create("http://localhost:1111/u/1");
-        final TusdUpload tusdUpload = mock(TusdUpload.class);
-        setInternalState(tusdUpload, "intervals", intervals);
-        when(tusdUpload.retrialPatch(0, uri)).thenCallRealMethod();
-        when(tusdUpload.patch(0, uri)).thenReturn(Mono.just(clientResponse));
-
-        tusdUpload.retrialPatch(0, uri);
-
-    }
+//
+//    @Test
+//    public void retrialPatch() {
+//        final Integer[] intervals = {500, 1000};
+//        final long res = 15;
+//        final ClientResponse clientResponse = mock(ClientResponse.class);
+//        when(clientResponse.statusCode())
+//            .thenReturn(HttpStatus.BAD_REQUEST)
+//            .thenReturn(HttpStatus.CREATED);
+//
+//        final TusdUpload tusdUpload = mock(TusdUpload.class);
+//        URI uri = URI.create("http://localhost:1111/u/1");
+//        setInternalState(tusdUpload, "intervals", intervals);
+//
+//        when(tusdUpload.uploadedLengthFromResponse(clientResponse)).thenReturn(res);
+//
+//        when(tusdUpload.patch(0, uri)).thenReturn(Mono.just(clientResponse));
+//
+//        when(tusdUpload.retrialPatch(0, uri)).thenCallRealMethod();
+//
+//        final long result = tusdUpload.retrialPatch(0, uri);
+//        assertEquals(result, res);
+//
+//    }
+//
+//    @Test
+//    public void retrialPatch_firstTry() {
+//        final Integer[] intervals = {500, 1000};
+//        final long res = 15;
+//        final ClientResponse clientResponse = mock(ClientResponse.class);
+//        when(clientResponse.statusCode())
+//            .thenReturn(HttpStatus.CREATED);
+//
+//        final TusdUpload tusdUpload = mock(TusdUpload.class);
+//        URI uri = URI.create("http://localhost:1111/u/1");
+//        setInternalState(tusdUpload, "intervals", intervals);
+//
+//        when(tusdUpload.uploadedLengthFromResponse(clientResponse)).thenReturn(res);
+//
+//        when(tusdUpload.patch(0, uri)).thenReturn(Mono.just(clientResponse));
+//
+//        when(tusdUpload.retrialPatch(0, uri)).thenCallRealMethod();
+//
+//        final long result = tusdUpload.retrialPatch(0, uri);
+//        assertEquals(result, res);
+//
+//    }
+//
+//    @Test(expected = FileUploadException.class)
+//    public void retrialPatch_didNotPassed() {
+//        final Integer[] intervals = {500, 1000};
+//
+//        final HttpHeaders httpHeaders = mock(HttpHeaders.class);
+//        when(httpHeaders.entrySet()).thenReturn(new HashSet<>());
+//
+//        final ClientResponse.Headers headers = mock(ClientResponse.Headers.class);
+//
+//        when(headers.asHttpHeaders()).thenReturn(httpHeaders);
+//
+//        final ClientResponse clientResponse = mock(ClientResponse.class);
+//
+//        when(clientResponse.headers()).thenReturn(headers);
+//
+//        when(clientResponse.statusCode())
+//            .thenReturn(HttpStatus.BAD_REQUEST)
+//            .thenReturn(HttpStatus.BAD_REQUEST)
+//            .thenReturn(HttpStatus.BAD_REQUEST)
+//        ;
+//
+//        final TusdUpload tusdUpload = mock(TusdUpload.class);
+//        final URI uri = URI.create("http://localhost:1111/u/1");
+//        setInternalState(tusdUpload, "intervals", intervals);
+//
+//        when(tusdUpload.patch(0, uri)).thenReturn(Mono.just(clientResponse));
+//        when(tusdUpload.retrialPatch(0, uri)).thenCallRealMethod();
+//
+//        tusdUpload.retrialPatch(0, uri);
+//
+//    }
+//
+//
+//    @Test(expected = FileUploadException.class)
+//    public void retrialPatch_IntervalsEmpty() {
+//        final Integer[] intervals = {};
+//
+//        final ClientResponse clientResponse = mock(ClientResponse.class);
+//        when(clientResponse.statusCode()).thenReturn(HttpStatus.BAD_REQUEST);
+//
+//        final URI uri = URI.create("http://localhost:1111/u/1");
+//        final TusdUpload tusdUpload = mock(TusdUpload.class);
+//        setInternalState(tusdUpload, "intervals", intervals);
+//        when(tusdUpload.retrialPatch(0, uri)).thenCallRealMethod();
+//        when(tusdUpload.patch(0, uri)).thenReturn(Mono.just(clientResponse));
+//
+//        tusdUpload.retrialPatch(0, uri);
+//
+//    }
 
     @Test
     public void dataBufferFlux() throws IOException {
@@ -297,15 +299,15 @@ public class TusdUploadTest {
     @Test
     public void patchChain(){
         final URI patchUri = URI.create("http://test");
+        log.info("chunk {}", patchUri);
         final TusdUpload tusdUpload = mock(TusdUpload.class);
         Whitebox.setInternalState(tusdUpload, "patchUri", patchUri);
         when(tusdUpload.calcChunkCount()).thenReturn(5);
-        final int sum = IntStream.range(0, 5)
-            .peek(chunk -> when(tusdUpload.retrialPatch(chunk, patchUri)).thenReturn((long) 64))
-            .map(o -> 64)
-            .sum();
+        IntStream.range(0, 5)
+            .forEach(chunk -> when(tusdUpload.patch(chunk)).thenReturn(Mono.just(64L)));
         when(tusdUpload.patchChain()).thenCallRealMethod();
-        assertEquals(Long.valueOf(sum), tusdUpload.patchChain().block());
+        final Long aLong = tusdUpload.patchChain().block();
+        assertEquals(Long.valueOf(64), aLong);
 
     }
 

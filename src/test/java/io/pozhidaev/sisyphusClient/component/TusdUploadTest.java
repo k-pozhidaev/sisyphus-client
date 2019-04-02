@@ -1,8 +1,6 @@
 package io.pozhidaev.sisyphusClient.component;
 
-import io.pozhidaev.sisyphusClient.domain.FileListModifiedReadException;
-import io.pozhidaev.sisyphusClient.domain.FileSizeReadException;
-import io.pozhidaev.sisyphusClient.domain.FileUploadException;
+import io.pozhidaev.sisyphusClient.domain.*;
 import io.pozhidaev.sisyphusClient.utils.Whitebox;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.Test;
@@ -19,13 +17,9 @@ import java.nio.channels.AsynchronousFileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.attribute.FileAttribute;
-import java.nio.file.attribute.PosixFilePermission;
-import java.nio.file.attribute.PosixFilePermissions;
 import java.util.*;
 import java.util.stream.IntStream;
 
-import static io.pozhidaev.sisyphusClient.utils.Whitebox.setInternalState;
 import static org.junit.Assert.*;
 import static org.mockito.Mockito.*;
 
@@ -89,103 +83,18 @@ public class TusdUploadTest {
         asynchronousFileChannel.close();
 
     }
-//
-//    @Test
-//    public void retrialPatch() {
-//        final Integer[] intervals = {500, 1000};
-//        final long res = 15;
-//        final ClientResponse clientResponse = mock(ClientResponse.class);
-//        when(clientResponse.statusCode())
-//            .thenReturn(HttpStatus.BAD_REQUEST)
-//            .thenReturn(HttpStatus.CREATED);
-//
-//        final TusdUpload tusdUpload = mock(TusdUpload.class);
-//        URI uri = URI.create("http://localhost:1111/u/1");
-//        setInternalState(tusdUpload, "intervals", intervals);
-//
-//        when(tusdUpload.uploadedLengthFromResponse(clientResponse)).thenReturn(res);
-//
-//        when(tusdUpload.patch(0, uri)).thenReturn(Mono.just(clientResponse));
-//
-//        when(tusdUpload.retrialPatch(0, uri)).thenCallRealMethod();
-//
-//        final long result = tusdUpload.retrialPatch(0, uri);
-//        assertEquals(result, res);
-//
-//    }
-//
-//    @Test
-//    public void retrialPatch_firstTry() {
-//        final Integer[] intervals = {500, 1000};
-//        final long res = 15;
-//        final ClientResponse clientResponse = mock(ClientResponse.class);
-//        when(clientResponse.statusCode())
-//            .thenReturn(HttpStatus.CREATED);
-//
-//        final TusdUpload tusdUpload = mock(TusdUpload.class);
-//        URI uri = URI.create("http://localhost:1111/u/1");
-//        setInternalState(tusdUpload, "intervals", intervals);
-//
-//        when(tusdUpload.uploadedLengthFromResponse(clientResponse)).thenReturn(res);
-//
-//        when(tusdUpload.patch(0, uri)).thenReturn(Mono.just(clientResponse));
-//
-//        when(tusdUpload.retrialPatch(0, uri)).thenCallRealMethod();
-//
-//        final long result = tusdUpload.retrialPatch(0, uri);
-//        assertEquals(result, res);
-//
-//    }
-//
-//    @Test(expected = FileUploadException.class)
-//    public void retrialPatch_didNotPassed() {
-//        final Integer[] intervals = {500, 1000};
-//
-//        final HttpHeaders httpHeaders = mock(HttpHeaders.class);
-//        when(httpHeaders.entrySet()).thenReturn(new HashSet<>());
-//
-//        final ClientResponse.Headers headers = mock(ClientResponse.Headers.class);
-//
-//        when(headers.asHttpHeaders()).thenReturn(httpHeaders);
-//
-//        final ClientResponse clientResponse = mock(ClientResponse.class);
-//
-//        when(clientResponse.headers()).thenReturn(headers);
-//
-//        when(clientResponse.statusCode())
-//            .thenReturn(HttpStatus.BAD_REQUEST)
-//            .thenReturn(HttpStatus.BAD_REQUEST)
-//            .thenReturn(HttpStatus.BAD_REQUEST)
-//        ;
-//
-//        final TusdUpload tusdUpload = mock(TusdUpload.class);
-//        final URI uri = URI.create("http://localhost:1111/u/1");
-//        setInternalState(tusdUpload, "intervals", intervals);
-//
-//        when(tusdUpload.patch(0, uri)).thenReturn(Mono.just(clientResponse));
-//        when(tusdUpload.retrialPatch(0, uri)).thenCallRealMethod();
-//
-//        tusdUpload.retrialPatch(0, uri);
-//
-//    }
-//
-//
-//    @Test(expected = FileUploadException.class)
-//    public void retrialPatch_IntervalsEmpty() {
-//        final Integer[] intervals = {};
-//
-//        final ClientResponse clientResponse = mock(ClientResponse.class);
-//        when(clientResponse.statusCode()).thenReturn(HttpStatus.BAD_REQUEST);
-//
-//        final URI uri = URI.create("http://localhost:1111/u/1");
-//        final TusdUpload tusdUpload = mock(TusdUpload.class);
-//        setInternalState(tusdUpload, "intervals", intervals);
-//        when(tusdUpload.retrialPatch(0, uri)).thenCallRealMethod();
-//        when(tusdUpload.patch(0, uri)).thenReturn(Mono.just(clientResponse));
-//
-//        tusdUpload.retrialPatch(0, uri);
-//
-//    }
+
+    @Test(expected = AsynchronousFileChannelOpenException.class)
+    public void asynchronousFileChannelQuietly_Exception() throws IOException {
+
+        final Path file = Paths.get("asynchronousFileChannelQuietly_Exception");
+        final TusdUpload tusUploader = TusdUpload.builder().path(file).build();
+
+        final AsynchronousFileChannel asynchronousFileChannel = tusUploader.asynchronousFileChannelQuietly();
+        assertTrue(asynchronousFileChannel.isOpen());
+        asynchronousFileChannel.close();
+
+    }
 
     @Test
     public void dataBufferFlux() throws IOException {
@@ -208,6 +117,8 @@ public class TusdUploadTest {
         assertEquals("test", blockFirst);
     }
 
+
+
     //TODO FIX NULL in mime type probe!
     @Test
     public void readContentTypeQuietly() throws IOException {
@@ -224,6 +135,19 @@ public class TusdUploadTest {
                 assertTrue(true);
                 return "";
             });
+    }
+
+
+    @Test(expected = FileContentTypeReadException.class)
+    public void readContentTypeQuietly_Exception() throws IOException {
+        final Path file = Files.createTempFile("readLastModifiedQuietly", ".html");
+
+        final TusdUpload tusdUpload = mock(TusdUpload.class);
+        Whitebox.setInternalState(tusdUpload, "path", file);
+        when(tusdUpload.readContentTypeQuietly()).thenCallRealMethod();
+        when(tusdUpload.probeContentType()).thenThrow(new IOException());
+
+        tusdUpload.readContentTypeQuietly();
     }
 
     @Test
@@ -311,13 +235,14 @@ public class TusdUploadTest {
 
     }
 
-    private FileAttribute<Set<PosixFilePermission>> fileAttributeReadOnly() {
-        Set<PosixFilePermission> readOnly = PosixFilePermissions.fromString("r--r--r--");
-        return PosixFilePermissions.asFileAttribute(readOnly);
-    }
 
-    private FileAttribute<Set<PosixFilePermission>> fileAttributeWriteOnly() {
-        Set<PosixFilePermission> readOnly = PosixFilePermissions.fromString("-w--w--w-");
-        return PosixFilePermissions.asFileAttribute(readOnly);
-    }
+//    private FileAttribute<Set<PosixFilePermission>> fileAttributeReadOnly() {
+//        Set<PosixFilePermission> readOnly = PosixFilePermissions.fromString("r--r--r--");
+//        return PosixFilePermissions.asFileAttribute(readOnly);
+//    }
+//
+//    private FileAttribute<Set<PosixFilePermission>> fileAttributeWriteOnly() {
+//        Set<PosixFilePermission> readOnly = PosixFilePermissions.fromString("-w--w--w-");
+//        return PosixFilePermissions.asFileAttribute(readOnly);
+//    }
 }

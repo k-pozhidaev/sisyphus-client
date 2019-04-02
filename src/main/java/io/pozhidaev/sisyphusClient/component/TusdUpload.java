@@ -70,33 +70,6 @@ public class TusdUpload {
             .orElse(Mono.empty());
     }
 
-//    long retrialPatch(final Integer chunk, final URI patchUri){
-//        final ClientResponse response = requireNonNull(patch(chunk, patchUri).block()); // TODO here problem
-//        if (!response.statusCode().isError()) {
-//            lastChunkUploaded = chunk;
-//            final long uploaded = uploadedLengthFromResponse(response);
-//            uploadedLength += uploaded;
-//            return uploaded;
-//        }
-//        int index = 0;
-//        for (final Integer interval : intervals) {
-//
-//            final ClientResponse resp = requireNonNull(
-//                Mono.delay(Duration.ofMillis(interval)).then(patch(chunk, patchUri)).block()
-//            );
-//            if (!resp.statusCode().isError()) {
-//                lastChunkUploaded = chunk;
-//                final long uploaded = uploadedLengthFromResponse(resp);
-//                uploadedLength += uploaded;
-//                return uploaded;
-//            }
-//            index++;
-//            if (index == intervals.length) throw new FileUploadException(response);
-//        }
-//        throw new FileUploadException(EMPTY_INTERVALS);
-//
-//    }
-
     Mono<Long> patch(final Integer chunk){
         return patch(chunk, (byte) 0)
             .map(r -> uploadedLength += uploadedLengthFromResponse(r));
@@ -203,7 +176,7 @@ public class TusdUpload {
 
     String readContentTypeQuietly() {
         try {
-            return Files.probeContentType(path);
+            return probeContentType();
         } catch (IOException e) {
             final FileContentTypeReadException exception = new FileContentTypeReadException(path, e);
             log.error("Reading content type error.", exception);
@@ -220,6 +193,10 @@ public class TusdUpload {
             log.error("File read error.", exception);
             throw exception;
         }
+    }
+
+    String probeContentType() throws IOException {
+        return Files.probeContentType(path);
     }
 
 }

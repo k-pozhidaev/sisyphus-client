@@ -65,14 +65,8 @@ public class TusdUpload {
 
     Mono<Long> patchChain(){
         return IntStream.range(0, calcChunkCount())
-            .peek(value -> log.info("{}", value))
             .mapToObj(this::patch)
-            .peek(longMono -> log.info("{}",longMono))
-            .reduce((longMono, other) -> {
-                log.info("{}, {}",longMono, other);
-                log.info("--------------------------");
-                return longMono.then(other);
-            })
+            .reduce(Mono::then)
             .orElse(Mono.empty());
     }
 

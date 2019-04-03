@@ -1,6 +1,7 @@
 package io.pozhidaev.sisyphusClient.component;
 
 import io.pozhidaev.sisyphusClient.domain.*;
+import io.pozhidaev.sisyphusClient.domain.exceptions.*;
 import lombok.Builder;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.buffer.DataBuffer;
@@ -18,11 +19,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.*;
-import java.util.concurrent.Callable;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import static io.pozhidaev.sisyphusClient.domain.FileUploadException.Type.EMPTY_INTERVALS;
 import static java.nio.file.StandardOpenOption.READ;
 import static java.util.Objects.requireNonNull;
 
@@ -88,7 +87,7 @@ public class TusdUpload {
             .header("Content-Length", Objects.toString(contentLength))
             .header("Content-Type", "application/offset+octet-stream")
             .exchange()
-            .doOnNext(cr -> log.info("Status: {}, chunk {} ", cr.rawStatusCode(), chunk))
+            .doOnNext(cr -> log.debug("Status: {}, chunk {} ", cr.rawStatusCode(), chunk))
             .flatMap(r -> {
                 final byte nextAttempt = (byte) (attempt + 1);
                 if (intervals.length == nextAttempt) throw new FileUploadException(r);

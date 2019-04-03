@@ -1,6 +1,6 @@
 package io.pozhidaev.sisyphusClient.component;
 
-import io.pozhidaev.sisyphusClient.domain.*;
+import io.pozhidaev.sisyphusClient.domain.exceptions.*;
 import io.pozhidaev.sisyphusClient.utils.Whitebox;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.Test;
@@ -20,6 +20,7 @@ import java.nio.file.Paths;
 import java.util.*;
 import java.util.stream.IntStream;
 
+import static io.pozhidaev.sisyphusClient.utils.Whitebox.setInternalState;
 import static org.junit.Assert.*;
 import static org.mockito.Mockito.*;
 
@@ -150,7 +151,7 @@ public class TusdUploadTest {
     @Test
     public void calcChunkCount() {
         final TusdUpload tusdUpload = mock(TusdUpload.class);
-        Whitebox.setInternalState(tusdUpload, "chunkSize", 1024);
+        setInternalState(tusdUpload, "chunkSize", 1024);
         when(tusdUpload.readFileSizeQuietly()).thenReturn(5000L);
         when(tusdUpload.calcChunkCount()).thenCallRealMethod();
         assertEquals(5, tusdUpload.calcChunkCount());
@@ -180,7 +181,7 @@ public class TusdUploadTest {
         final Path file = Files.createTempFile("readLastModifiedQuietly", ".html");
 
         final TusdUpload tusdUpload = mock(TusdUpload.class);
-        Whitebox.setInternalState(tusdUpload, "path", file);
+        setInternalState(tusdUpload, "path", file);
         when(tusdUpload.readContentTypeQuietly()).thenCallRealMethod();
         when(tusdUpload.probeContentType()).thenThrow(new IOException());
 
@@ -262,16 +263,23 @@ public class TusdUploadTest {
         final URI patchUri = URI.create("http://test");
         log.info("chunk {}", patchUri);
         final TusdUpload tusdUpload = mock(TusdUpload.class);
-        Whitebox.setInternalState(tusdUpload, "patchUri", patchUri);
+        setInternalState(tusdUpload, "patchUri", patchUri);
         when(tusdUpload.calcChunkCount()).thenReturn(5);
         IntStream.range(0, 5)
             .forEach(chunk -> when(tusdUpload.patch(chunk)).thenReturn(Mono.just(64L)));
         when(tusdUpload.patchChain()).thenCallRealMethod();
         final Long aLong = tusdUpload.patchChain().block();
         assertEquals(Long.valueOf(64), aLong);
-
     }
 
+
+    @Test
+    public void patch(){
+
+        final TusdUpload tusdUpload = mock(TusdUpload.class);
+        setInternalState(tusdUpload, "chunkSize", 1024);
+
+    }
 
 //    private FileAttribute<Set<PosixFilePermission>> fileAttributeReadOnly() {
 //        Set<PosixFilePermission> readOnly = PosixFilePermissions.fromString("r--r--r--");

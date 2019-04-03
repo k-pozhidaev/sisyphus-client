@@ -1,4 +1,4 @@
-package io.pozhidaev.sisyphusClient.domain;
+package io.pozhidaev.sisyphusClient.domain.exceptions;
 
 
 import java.nio.file.Path;

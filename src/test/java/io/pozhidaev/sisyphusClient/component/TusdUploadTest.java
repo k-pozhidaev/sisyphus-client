@@ -97,6 +97,36 @@ public class TusdUploadTest {
     }
 
     @Test
+    public void uploadedLengthFromResponse(){
+
+        final ClientResponse.Headers headers = mock(ClientResponse.Headers.class);
+        when(headers.header("Upload-Offset")).thenReturn(Collections.singletonList("666"));
+        final ClientResponse response = mock(ClientResponse.class);
+        when(response.headers()).thenReturn(headers);
+        final TusdUpload tusdUpload = mock(TusdUpload.class);
+        when(tusdUpload.uploadedLengthFromResponse(response)).thenCallRealMethod();
+        assertEquals(666L, tusdUpload.uploadedLengthFromResponse(response));
+    }
+
+    @Test(expected = FileUploadException.class)
+    public void uploadedLengthFromResponse_Exception(){
+        final HttpHeaders httpHeaders = mock(HttpHeaders.class);
+        when(httpHeaders.entrySet()).thenReturn(new HashSet<>());
+
+        final ClientResponse.Headers headers = mock(ClientResponse.Headers.class);
+        when(headers.header("Upload-Offset")).thenReturn(Collections.emptyList());
+        when(headers.asHttpHeaders()).thenReturn(httpHeaders);
+
+        final ClientResponse response = mock(ClientResponse.class);
+        when(response.headers()).thenReturn(headers);
+        when(response.statusCode()).thenReturn(HttpStatus.BAD_REQUEST);
+
+        final TusdUpload tusdUpload = mock(TusdUpload.class);
+        when(tusdUpload.uploadedLengthFromResponse(response)).thenCallRealMethod();
+        tusdUpload.uploadedLengthFromResponse(response);
+    }
+
+    @Test
     public void dataBufferFlux() throws IOException {
 
         final Path file = Files.createTempFile("asynchronousFileChannelQuietly", " 1");
@@ -117,7 +147,14 @@ public class TusdUploadTest {
         assertEquals("test", blockFirst);
     }
 
-
+    @Test
+    public void calcChunkCount() {
+        final TusdUpload tusdUpload = mock(TusdUpload.class);
+        Whitebox.setInternalState(tusdUpload, "chunkSize", 1024);
+        when(tusdUpload.readFileSizeQuietly()).thenReturn(5000L);
+        when(tusdUpload.calcChunkCount()).thenCallRealMethod();
+        assertEquals(5, tusdUpload.calcChunkCount());
+    }
 
     //TODO FIX NULL in mime type probe!
     @Test

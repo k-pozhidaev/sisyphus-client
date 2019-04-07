@@ -77,23 +77,20 @@ public class TusdUpload {
     Mono<ClientResponse> patch(final Integer chunk, final byte attempt){
         final long offset = chunk * chunkSize;
         final long tailSize = readFileSizeQuietly() - offset;
-        final int contentLength = tailSize < chunkSize ? (int) tailSize : chunkSize;
-
         return client
             .patch()
             .uri(patchUri)
             .body(dataBufferFlux(chunk), DataBuffer.class)
             .header("Upload-Offset", Objects.toString(offset))
-            .header("Content-Length", Objects.toString(contentLength))
+            .header("Content-Length", Objects.toString(Math.min(tailSize, chunkSize)))
             .header("Content-Type", "application/offset+octet-stream")
             .exchange()
             .doOnNext(cr -> log.debug("Status: {}, chunk {} ", cr.rawStatusCode(), chunk))
             .flatMap(r -> {
+                if (!r.statusCode().isError()) return Mono.just(r);
                 final byte nextAttempt = (byte) (attempt + 1);
-                if (intervals.length == nextAttempt) throw new FileUploadException(r);
-                if (r.statusCode().isError())
-                    return Mono.delay(Duration.ofMillis(intervals[attempt])).then(patch(chunk, nextAttempt));
-                return Mono.just(r);
+                if (intervals.length == attempt) throw new FileUploadException(r);
+                return Mono.delay(Duration.ofMillis(intervals[attempt])).then(patch(chunk, nextAttempt));
             })
             ;
     }

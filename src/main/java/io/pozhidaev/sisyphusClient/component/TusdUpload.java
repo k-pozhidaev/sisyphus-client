@@ -3,6 +3,8 @@ package io.pozhidaev.sisyphusClient.component;
 import io.pozhidaev.sisyphusClient.domain.*;
 import io.pozhidaev.sisyphusClient.domain.exceptions.*;
 import lombok.Builder;
+import lombok.EqualsAndHashCode;
+import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.core.io.buffer.DataBufferUtils;
@@ -27,6 +29,8 @@ import static java.util.Objects.requireNonNull;
 
 @Slf4j
 @Builder(builderClassName = "Builder")
+@ToString
+@EqualsAndHashCode
 public class TusdUpload {
 
     private WebClient client;
@@ -49,17 +53,21 @@ public class TusdUpload {
 
 
     Mono<TusdUpload> post(){
-        return client.post()
-                .headers(httpHeaders -> {
-                    httpHeaders.set("Upload-Length", Objects.toString(readFileSizeQuietly()));
-                    httpHeaders.set("Upload-Metadata", generateMetadataQuietly());
-                    httpHeaders.set("Mime-Type", readContentTypeQuietly());
-                })
-                .exchange()
+        return doPost()
                 .doOnNext(this::handleResponse)
                 .doOnNext(cr -> patchUri = requireNonNull(cr.headers().asHttpHeaders().getLocation()))
                 .then(Mono.just(this))
             ;
+    }
+
+    Mono<ClientResponse> doPost(){
+        return client.post()
+            .headers(httpHeaders -> {
+                httpHeaders.set("Upload-Length", Objects.toString(readFileSizeQuietly()));
+                httpHeaders.set("Upload-Metadata", generateMetadataQuietly());
+                httpHeaders.set("Mime-Type", readContentTypeQuietly());
+            })
+            .exchange();
     }
 
     Mono<Long> patchChain(){

@@ -1,48 +1,97 @@
 package io.pozhidaev.sisyphusClient.component;
 
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Ignore;
-import org.junit.Test;
+import okhttp3.mockwebserver.MockResponse;
+import okhttp3.mockwebserver.MockWebServer;
+import org.junit.*;
 import org.junit.runner.RunWith;
 import org.mockito.Mockito;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
+import reactor.test.StepVerifier;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.nio.channels.AsynchronousFileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Base64;
 import java.util.Collections;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 
+import static io.pozhidaev.sisyphusClient.utils.Whitebox.getInternalState;
 import static java.nio.file.StandardOpenOption.*;
 import static org.junit.Assert.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 @RunWith(SpringRunner.class)
 public class TusUploaderTest {
 
-    @MockBean
-    Supplier<WebClient> webClientFactoryMethod;
-    WebClient client;
+    private Supplier<WebClient> webClientFactoryMethod;
 
-    @MockBean
-    Flux<Path> createdFileStream;
+    private Flux<Path> createdFileStream;
 
-    @MockBean
-    Supplier<Integer> chunkSize;
+    private Supplier<Integer> chunkSize;
 
+    private MockWebServer server;
 
+    private WebClient webClient;
+
+    @After
+    public void shutdown() throws Exception {
+        this.server.shutdown();
+    }
     @Before
     public void onInit(){
-        client = Mockito.mock(WebClient.class);
-        Mockito.when(webClientFactoryMethod.get()).thenReturn(client);
+        server = new MockWebServer();
+        webClient = WebClient.builder().baseUrl(server.url("/upload").toString()).build();
+        webClientFactoryMethod = () -> webClient;
+        createdFileStream = Flux.just(Paths.get("test1"), Paths.get("test2"), Paths.get("test3"));
+        chunkSize = () -> 6000;
+    }
+
+    @Test
+    public void setCreatedFileStream(){
+        final Flux<Path> flux = Flux.just(Paths.get("test"));
+        final TusUploader tusUploader = new TusUploader();
+        tusUploader.setCreatedFileStream(flux);
+        assertEquals(getInternalState(tusUploader,"createdFileStream"), flux);
+    }
+
+    @Test
+    public void setWebClientFactoryMethod(){
+        final Supplier<WebClient> webClientFactoryMethod = WebClient::create;
+        final TusUploader tusUploader = new TusUploader();
+        tusUploader.setWebClientFactoryMethod(webClientFactoryMethod);
+        assertEquals(webClientFactoryMethod, getInternalState(tusUploader, "webClientFactoryMethod"));
+    }
+
+    @Test
+    public void setChunkSize(){
+        final Supplier<Integer> chunkSize = () -> Integer.MAX_VALUE;
+        final TusUploader tusUploader = new TusUploader();
+        tusUploader.setChunkSize(chunkSize);
+        assertEquals(chunkSize, getInternalState(tusUploader, "chunkSize"));
+    }
+
+    @Test
+    public void tusdUploadBuilder(){
+        final TusdUpload.Builder tusdUploadBuilder = TusdUpload.builder();
+        final TusUploader tusUploader = new TusUploader();
+        tusUploader.tusdUploadBuilder(tusdUploadBuilder);
+        assertEquals(tusdUploadBuilder, getInternalState(tusUploader, "tusdUploadBuilder"));
+    }
+
+    @Test
+    public void run(){
+        server.enqueue(new MockResponse().setResponseCode(201));
+        final Supplier<WebClient> webClientFactoryMethod = WebClient::create;
+        final TusdUpload upload = mock(TusdUpload.class);
+        final TusUploader tusUploader = mock(TusUploader.class);
+        when(tusUploader.tusdUploadBuild(Paths.get("test1"))).thenReturn(upload);
+        when(tusUploader.tusdUploadBuild(Paths.get("test2"))).thenReturn(upload);
+        when(tusUploader.tusdUploadBuild(Paths.get("test3"))).thenReturn(upload);
     }
 
     @Test

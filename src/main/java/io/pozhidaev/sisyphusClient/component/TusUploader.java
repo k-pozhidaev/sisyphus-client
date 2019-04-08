@@ -9,12 +9,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.ClientResponse;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import java.nio.file.Path;
-import java.util.*;
 import java.util.function.Supplier;
-
-import static io.pozhidaev.sisyphusClient.domain.Options.getZeroElementIfExists;
 
 
 @Slf4j
@@ -29,7 +27,7 @@ public class TusUploader implements ApplicationRunner {
     private TusdUpload.Builder tusdUploadBuilder;
 
     @Autowired
-    public void setCreatedFileStream(Flux<Path> createdFileStream) {
+    public void setCreatedFileStream(final Flux<Path> createdFileStream) {
         this.createdFileStream = createdFileStream;
     }
 
@@ -49,45 +47,33 @@ public class TusUploader implements ApplicationRunner {
     }
 
     @Override
-    public void run(ApplicationArguments args) {
-
-        webClientFactoryMethod
-            .get()
-            .options()
-            .exchange()
+    public void run(final ApplicationArguments args) {
+        options()
             .map(ClientResponse::headers)
-            .map(this::buildOptions)
-            .doOnNext(o -> this.options = o)
+            .map(Options::buildOptions)
+            .doOnNext(o -> options = o)
             .thenMany(createdFileStream)
-            .map(path -> tusdUploadBuilder
-                .path(path)
-                .options(options)
-                .client(webClientFactoryMethod.get())
-                .chunkSize(chunkSize.get())
-                .build())
+            .map(this::tusdUploadBuild)
             .flatMap(TusdUpload::post)
             .flatMap(TusdUpload::patchChain)
             .subscribe()
         ;
     }
 
-    private Options buildOptions(final ClientResponse.Headers headers) {
-        final Options options = new Options();
+    Mono<ClientResponse> options(){
+        return webClientFactoryMethod
+            .get()
+            .options()
+            .exchange();
+    }
 
-        getZeroElementIfExists(headers.header(Options.HEADER_NAME_RESUMABLE))
-            .ifPresent(options::setResumable);
-        getZeroElementIfExists(headers.header(Options.HEADER_NAME_VERSION))
-            .map(s -> s.split(","))
-            .map(Arrays::asList)
-            .ifPresent(options::setVersion);
-        getZeroElementIfExists(headers.header(Options.HEADER_NAME_EXTENSION))
-            .map(s -> s.split(","))
-            .map(Arrays::asList)
-            .ifPresent(options::setExtension);
-        getZeroElementIfExists(headers.header(Options.HEADER_NAME_MAX_SIZE))
-            .map(Long::valueOf)
-            .ifPresent(options::setMaxSize);
-        return options;
+    TusdUpload tusdUploadBuild(final Path path){
+        return tusdUploadBuilder
+            .path(path)
+            .options(options)
+            .client(webClientFactoryMethod.get())
+            .chunkSize(chunkSize.get())
+            .build();
     }
 
 }

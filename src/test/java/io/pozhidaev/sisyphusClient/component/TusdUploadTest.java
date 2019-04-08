@@ -2,7 +2,6 @@ package io.pozhidaev.sisyphusClient.component;
 
 import io.pozhidaev.sisyphusClient.domain.exceptions.*;
 import lombok.extern.slf4j.Slf4j;
-import okhttp3.HttpUrl;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import okhttp3.mockwebserver.RecordedRequest;
@@ -28,17 +27,15 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.IntStream;
 
+import static io.pozhidaev.sisyphusClient.utils.Whitebox.getInternalState;
 import static io.pozhidaev.sisyphusClient.utils.Whitebox.setInternalState;
 import static org.junit.Assert.*;
 import static org.mockito.Mockito.*;
 
 @Slf4j
 public class TusdUploadTest {
-
-
 
     private MockWebServer server;
 
@@ -47,9 +44,8 @@ public class TusdUploadTest {
 
     @Before
     public void setup() {
-        this.server = new MockWebServer();
-        String baseUrl = this.server.url("/").toString();
-        this.webClient = WebClient.create(baseUrl);
+        server = new MockWebServer();
+        webClient = WebClient.builder().baseUrl(server.url("/upload").toString()).build();
     }
 
     @After
@@ -372,7 +368,6 @@ public class TusdUploadTest {
         setInternalState(tusdUpload, "chunkSize", 1024);
         setInternalState(tusdUpload, "patchUri", server.url("/upload").uri());
         setInternalState(tusdUpload, "intervals", new Integer[] {500});
-        System.out.println(server.url("/upload").uri());
 
         tusdUpload.setClient(webClient);
 
@@ -395,6 +390,39 @@ public class TusdUploadTest {
         when(tusdUpload.patch(0)).thenCallRealMethod();
         final Long aLong = tusdUpload.patch(0).block();
         assertEquals(aLong, Long.valueOf(3072));
+    }
+
+    @Test
+    public void post(){
+        final ClientResponse response = ClientResponse.create(HttpStatus.CREATED).header("location", "test://test").build();
+        final TusdUpload tusdUpload = mock(TusdUpload.class);
+        when(tusdUpload.post()).thenCallRealMethod();
+        when(tusdUpload.doPost()).thenReturn(Mono.just(response));
+        doNothing().when(tusdUpload).handleResponse(response);
+        final TusdUpload upload = tusdUpload.post().block();
+        assertNotNull(upload);
+        final URI patchUri = (URI) getInternalState(upload, "patchUri");
+        assertEquals(patchUri, URI.create("test://test"));
+    }
+
+    @Test
+    public void doPost() throws InterruptedException {
+        server.enqueue(new MockResponse().setResponseCode(201));
+
+        final TusdUpload tusdUpload = mock(TusdUpload.class);
+        when(tusdUpload.doPost()).thenCallRealMethod();
+        when(tusdUpload.readFileSizeQuietly()).thenReturn(2028L);
+        when(tusdUpload.generateMetadataQuietly()).thenReturn("test test,test2 test");
+        when(tusdUpload.readContentTypeQuietly()).thenReturn("text/xml");
+        doCallRealMethod().when(tusdUpload).setClient(webClient);
+
+        tusdUpload.setClient(webClient);
+
+        tusdUpload.doPost().block();
+        final RecordedRequest request = server.takeRequest();
+        assertEquals(request.getHeader("Upload-Length"), "2028");
+        assertEquals(request.getHeader("Upload-Metadata"), "test test,test2 test");
+        assertEquals(request.getHeader("Mime-Type"), "text/xml");
     }
 
 

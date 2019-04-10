@@ -1,5 +1,6 @@
 package io.pozhidaev.sisyphusClient.domain;
 
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.ToString;
@@ -12,6 +13,7 @@ import java.util.Optional;
 @Setter
 @ToString
 @NoArgsConstructor
+@EqualsAndHashCode
 public class Options {
     public final static String HEADER_NAME_RESUMABLE = "Tus-Resumable";
     public final static String HEADER_NAME_VERSION = "Tus-Version";

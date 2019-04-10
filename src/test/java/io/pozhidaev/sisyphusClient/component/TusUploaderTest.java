@@ -4,12 +4,13 @@ import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import org.junit.*;
 import org.junit.runner.RunWith;
-import org.mockito.Mockito;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.ApplicationArguments;
+import org.springframework.http.HttpStatus;
 import org.springframework.test.context.junit4.SpringRunner;
+import org.springframework.web.reactive.function.client.ClientResponse;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
-import reactor.test.StepVerifier;
+import reactor.core.publisher.Mono;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -19,11 +20,11 @@ import java.util.Collections;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 
+import static io.pozhidaev.sisyphusClient.domain.Options.*;
 import static io.pozhidaev.sisyphusClient.utils.Whitebox.getInternalState;
 import static java.nio.file.StandardOpenOption.*;
 import static org.junit.Assert.*;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @RunWith(SpringRunner.class)
 public class TusUploaderTest {
@@ -86,12 +87,47 @@ public class TusUploaderTest {
     @Test
     public void run(){
         server.enqueue(new MockResponse().setResponseCode(201));
-        final Supplier<WebClient> webClientFactoryMethod = WebClient::create;
         final TusdUpload upload = mock(TusdUpload.class);
+        when(upload.post()).thenReturn(Mono.just(upload));
+        when(upload.patchChain()).thenReturn(Mono.just(1000L));
+        final ApplicationArguments applicationArguments = mock(ApplicationArguments.class);
         final TusUploader tusUploader = mock(TusUploader.class);
         when(tusUploader.tusdUploadBuild(Paths.get("test1"))).thenReturn(upload);
         when(tusUploader.tusdUploadBuild(Paths.get("test2"))).thenReturn(upload);
         when(tusUploader.tusdUploadBuild(Paths.get("test3"))).thenReturn(upload);
+        when(tusUploader.options()).thenReturn(Mono.just(ClientResponse
+            .create(HttpStatus.NO_CONTENT)
+            .header(HEADER_NAME_RESUMABLE, "test")
+            .header(HEADER_NAME_VERSION, "1,2,3")
+            .header(HEADER_NAME_EXTENSION, "test1,test2")
+            .build()));
+        doCallRealMethod().when(tusUploader).setCreatedFileStream(createdFileStream);
+        when(tusUploader.tusdUploadBuild(Paths.get("test1"))).thenReturn(upload);
+        when(tusUploader.tusdUploadBuild(Paths.get("test2"))).thenReturn(upload);
+        when(tusUploader.tusdUploadBuild(Paths.get("test3"))).thenReturn(upload);
+        doCallRealMethod().when(tusUploader).run(applicationArguments);
+
+        tusUploader.setCreatedFileStream(createdFileStream);
+        tusUploader.run(applicationArguments);
+    }
+
+    @Test
+    public void options() throws InterruptedException {
+        server.enqueue(new MockResponse().setResponseCode(201));
+        final TusUploader tusUploader = new TusUploader();
+        tusUploader.setWebClientFactoryMethod(webClientFactoryMethod);
+        tusUploader.options().block();
+        server.takeRequest();
+    }
+
+    @Test
+    public void tusdUploadBuild(){
+        final TusUploader tusUploader = new TusUploader();
+        tusUploader.tusdUploadBuilder(TusdUpload.builder());
+        tusUploader.setWebClientFactoryMethod(webClientFactoryMethod);
+        tusUploader.setChunkSize(chunkSize);
+        final TusdUpload tusdUpload = tusUploader.tusdUploadBuild(Paths.get("test"));
+        assertEquals(getInternalState(tusdUpload, "path"), Paths.get("test"));
     }
 
     @Test

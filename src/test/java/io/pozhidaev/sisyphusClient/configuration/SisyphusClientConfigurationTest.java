@@ -3,7 +3,10 @@ package io.pozhidaev.sisyphusClient.configuration;
 import io.tus.java.client.TusClient;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.Mockito;
+import org.springframework.messaging.SubscribableChannel;
 import org.springframework.test.context.junit4.SpringRunner;
+import org.springframework.web.reactive.function.client.WebClient;
 
 import java.io.IOException;
 import java.net.MalformedURLException;
@@ -16,6 +19,8 @@ import java.util.Objects;
 import java.util.Set;
 
 import static org.junit.Assert.assertEquals;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 @RunWith(SpringRunner.class)
 public class SisyphusClientConfigurationTest {
@@ -76,6 +81,16 @@ public class SisyphusClientConfigurationTest {
         sisyphusClientConfiguration.sourceFolder();
     }
 
+    @Test(expected = RuntimeException.class)
+    public void pathFromStringParam_exception2() throws IOException {
+        Set<PosixFilePermission> readOnly = PosixFilePermissions.fromString("r--r--r--");
+        final SisyphusClientConfiguration sisyphusClientConfiguration = new SisyphusClientConfiguration();
+        final Path test_sourceFolder = Files.createTempDirectory("pathFromStringParam_exception", PosixFilePermissions.asFileAttribute(readOnly));
+        final String tmp = test_sourceFolder.toAbsolutePath().toString();
+        sisyphusClientConfiguration.setSourceFolder(Paths.get(tmp, "test").toString());
+        sisyphusClientConfiguration.sourceFolder();
+    }
+
     @Test
     public void tusUploadConsumer() throws IOException {
         final Path test = Files.createTempFile("test", "");
@@ -129,5 +144,53 @@ public class SisyphusClientConfigurationTest {
         final SisyphusClientConfiguration sisyphusClientConfiguration = new SisyphusClientConfiguration();
         sisyphusClientConfiguration.setChunkSize(15);
         assertEquals(sisyphusClientConfiguration.chunkSize().get().toString(), Objects.toString(15));
+    }
+
+    @Test
+    public void tusdUploadBuilder(){
+        final SisyphusClientConfiguration sisyphusClientConfiguration = new SisyphusClientConfiguration();
+        sisyphusClientConfiguration.setIntervals(new Integer[]{1000});
+        sisyphusClientConfiguration.setUrl("test://test");
+        sisyphusClientConfiguration.tusdUploadBuilder(WebClient::create);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void tusdUploadBuilder_exception(){
+        final SisyphusClientConfiguration sisyphusClientConfiguration = new SisyphusClientConfiguration();
+        sisyphusClientConfiguration.setIntervals(new Integer[]{});
+        sisyphusClientConfiguration.setUrl("test://test");
+        sisyphusClientConfiguration.tusdUploadBuilder(WebClient::create);
+    }
+
+    @Test
+    public void webClientFactoryMethod(){
+        final SisyphusClientConfiguration sisyphusClientConfiguration = new SisyphusClientConfiguration();
+        sisyphusClientConfiguration.setUrl("test://test");
+        sisyphusClientConfiguration.webClientFactoryMethod().get();
+    }
+
+    @Test
+    public void logChannel(){
+        final SisyphusClientConfiguration sisyphusClientConfiguration = new SisyphusClientConfiguration();
+        sisyphusClientConfiguration.logChannel();
+    }
+
+    @Test
+    public void fileFlow() throws IOException {
+        final SubscribableChannel channel = mock(SubscribableChannel.class);
+        final SisyphusClientConfiguration configuration = mock(SisyphusClientConfiguration.class);
+        when(configuration.sourceFolder()).thenReturn(Files.createTempDirectory("test"));
+        when(configuration.logChannel()).thenReturn(channel);
+        when(configuration.fileFlow()).thenCallRealMethod();
+        configuration.fileFlow();
+    }
+
+    @Test
+    public void createdFileStream() {
+        final SubscribableChannel channel = mock(SubscribableChannel.class);
+        final SisyphusClientConfiguration configuration = mock(SisyphusClientConfiguration.class);
+        when(configuration.logChannel()).thenReturn(channel);
+        when(configuration.createdFileStream()).thenCallRealMethod();
+        configuration.createdFileStream().subscribe();
     }
 }

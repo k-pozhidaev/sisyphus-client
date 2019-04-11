@@ -33,6 +33,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -138,13 +139,17 @@ public class SisyphusClientConfiguration {
                 inboundAdapter(sourceFolder().toFile())
                     .useWatchService(true)
                     .watchEvents(CREATE,MODIFY)
-                    .filter(files -> Arrays.stream(files)
-                        .filter(file -> System.currentTimeMillis() - file.lastModified() < 60_000)
-                        .collect(Collectors.toList())),
+                    .filter(this::filterFiles),
                 poller -> poller.poller(pm -> pm.fixedRate(1, SECONDS))
             )
             .channel(this.logChannel())
             .get();
+    }
+
+    List<File> filterFiles(final File[] files){
+        return Arrays.stream(files)
+            .filter(file -> System.currentTimeMillis() - file.lastModified() < 60_000)
+            .collect(Collectors.toList());
     }
 
     @Bean
@@ -154,8 +159,7 @@ public class SisyphusClientConfiguration {
             final ForwardingMessageHandler handler = new ForwardingMessageHandler(fluxSink);
             subscribableChannel.subscribe(handler);
         })
-            .onErrorResume(Exception.class, Flux::error)
-            .doOnNext(path -> log.info("path added: {}", path));
+            .onErrorResume(Exception.class, Flux::error);
     }
 
 
@@ -186,15 +190,13 @@ public class SisyphusClientConfiguration {
 
         private final FluxSink<Path> sink;
 
-        ForwardingMessageHandler(FluxSink<Path> sink) {
+        ForwardingMessageHandler(final FluxSink<Path> sink) {
             this.sink = sink;
         }
 
         @Override
-        public void handleMessage(Message<?> message) throws MessagingException {
-
-            File strPayloadFromChannel = (File) message.getPayload();
-
+        public void handleMessage(final Message<?> message) throws MessagingException {
+            final File strPayloadFromChannel = (File) message.getPayload();
             sink.next(Paths.get(strPayloadFromChannel.getAbsolutePath()));
         }
     }

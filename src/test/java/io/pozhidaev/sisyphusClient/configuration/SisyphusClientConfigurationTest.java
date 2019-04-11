@@ -1,13 +1,16 @@
 package io.pozhidaev.sisyphusClient.configuration;
 
+import io.pozhidaev.sisyphusClient.utils.Whitebox;
 import io.tus.java.client.TusClient;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.Mockito;
+import org.springframework.messaging.Message;
 import org.springframework.messaging.SubscribableChannel;
 import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.FluxSink;
 
+import java.io.File;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.nio.file.Files;
@@ -15,12 +18,13 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.attribute.PosixFilePermission;
 import java.nio.file.attribute.PosixFilePermissions;
+import java.util.Collections;
 import java.util.Objects;
 import java.util.Set;
 
+import static io.pozhidaev.sisyphusClient.utils.Whitebox.setInternalState;
 import static org.junit.Assert.assertEquals;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @RunWith(SpringRunner.class)
 public class SisyphusClientConfigurationTest {
@@ -182,7 +186,18 @@ public class SisyphusClientConfigurationTest {
         when(configuration.sourceFolder()).thenReturn(Files.createTempDirectory("test"));
         when(configuration.logChannel()).thenReturn(channel);
         when(configuration.fileFlow()).thenCallRealMethod();
+        when(configuration.filterFiles(null)).thenReturn(Collections.emptyList());
         configuration.fileFlow();
+    }
+
+    @Test
+    public void filterFiles(){
+        final File file1 = mock(File.class);
+        when(file1.lastModified()).thenReturn(System.currentTimeMillis() - 59_000);
+        final File file2 = mock(File.class);
+        when(file2.lastModified()).thenReturn(System.currentTimeMillis() - 60_000);
+        final SisyphusClientConfiguration configuration = new SisyphusClientConfiguration();
+        assertEquals(configuration.filterFiles(new File[]{file1, file2}).size(), 1);
     }
 
     @Test
@@ -192,5 +207,21 @@ public class SisyphusClientConfigurationTest {
         when(configuration.logChannel()).thenReturn(channel);
         when(configuration.createdFileStream()).thenCallRealMethod();
         configuration.createdFileStream().subscribe();
+    }
+
+    @Test
+    public void ForwardingMessageHandler_handleMessage(){
+        final FluxSink<Path> sink = mock(FluxSink.class);
+        when(sink.next(Paths.get("/test/test2"))).thenReturn(sink);
+        final File file = mock(File.class);
+        when(file.getAbsolutePath()).thenReturn("/test/test2");
+        final Message message = mock(Message.class);
+        when(message.getPayload()).thenReturn(file);
+        final SisyphusClientConfiguration.ForwardingMessageHandler handler
+            = mock(SisyphusClientConfiguration.ForwardingMessageHandler.class);
+        setInternalState(handler, "sink", sink);
+        doCallRealMethod().when(handler).handleMessage(message);
+        handler.handleMessage(message);
+
     }
 }

@@ -1,8 +1,8 @@
 package io.pozhidaev.sisyphusClient.domain;
 
 public interface UploadFile {
-    String getLastModified();
-    void setLastModified(final String lastModified);
+    Long getLastModified();
+    void setLastModified(final Long lastModified);
 
     String getContentType();
     void setContentType(final String contentType);

@@ -14,24 +14,14 @@ public class LocalFileStore {
         fileStore = new ConcurrentHashMap<>();
     }
 
-    public LocalFileStore addUpload(final String fingerprint, final Item data) {
-        if (fileStore.containsKey(fingerprint))
-        fileStore.putIfAbsent(fingerprint, data);
-        return this;
-    }
-
     public LocalFileStore addUpload(
         final String fingerprint,
-        final String lastModified,
+        final Long lastModified,
         final String contentType,
         final Long fileSize
     ) {
         fileStore.putIfAbsent(fingerprint, new Item(lastModified, contentType, fileSize));
         return this;
-    }
-
-    public Boolean fileExists(final String fingerprint){
-        return fileStore.containsKey(fingerprint);
     }
 
     public Optional<Item> getUpload(String fingerprint){
@@ -44,7 +34,7 @@ public class LocalFileStore {
     @Data
     @AllArgsConstructor
     static class Item implements UploadFile {
-        private String lastModified;
+        private Long lastModified;
         private String contentType;
         private Long fileSize;
     }

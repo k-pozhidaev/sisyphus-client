@@ -7,7 +7,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class LocalFileStore {
+public class LocalFileStore implements FileStorage {
     private Map<String, Item> fileStore;
 
     public LocalFileStore() {
@@ -24,7 +24,7 @@ public class LocalFileStore {
         return this;
     }
 
-    public Optional<Item> getUpload(String fingerprint){
+    public Optional<UploadFile> getUpload(String fingerprint){
         if (fileStore.containsKey(fingerprint)) {
             return Optional.of(fileStore.get(fingerprint));
         }

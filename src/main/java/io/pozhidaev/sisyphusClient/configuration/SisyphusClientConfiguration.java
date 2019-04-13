@@ -1,9 +1,6 @@
 package io.pozhidaev.sisyphusClient.configuration;
 
 import io.pozhidaev.sisyphusClient.component.TusdUpload;
-import io.tus.java.client.TusClient;
-import io.tus.java.client.TusURLMemoryStore;
-import io.tus.java.client.TusUpload;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
@@ -23,20 +20,14 @@ import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
 
-import javax.annotation.PostConstruct;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.net.MalformedURLException;
-import java.net.URL;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Consumer;
-import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
@@ -62,14 +53,6 @@ public class SisyphusClientConfiguration {
     private Integer chunkSize;
     private Integer[] intervals;
 
-
-    @PostConstruct
-    void onInit() throws IOException {
-        if (completedFolder().equals(sourceFolder())) {
-            throw new IOException("Source and completed folders could not be equals");
-        }
-    }
-
     @Bean
     TusdUpload.Builder tusdUploadBuilder (Supplier<WebClient> webClientFactoryMethod) {
         Assert.isTrue(intervals.length != 0, () -> "sisyphus-client.intervals cannot be empty");
@@ -88,11 +71,6 @@ public class SisyphusClientConfiguration {
     }
 
     @Bean
-    Path completedFolder() {
-        return pathFromStringParam(completedFolder);
-    }
-
-    @Bean
     Path sourceFolder() {
         return pathFromStringParam(sourceFolder);
     }
@@ -100,31 +78,6 @@ public class SisyphusClientConfiguration {
     @Bean
     Supplier<Integer> chunkSize() {
         return () -> Objects.requireNonNull(chunkSize);
-    }
-
-    @Bean
-    Function<Path, TusUpload> tusUploadConsumer() {
-        return (final Path path) -> {
-            try {
-                log.debug("Uploading file: {}", path.toAbsolutePath());
-                return new TusUpload(path.toFile());
-            } catch (FileNotFoundException e) {
-                log.error("Upload error");
-                throw new RuntimeException("Upload error", e);
-            }
-        };
-    }
-
-    @Bean
-    TusClient tusClient() throws MalformedURLException {
-
-        final TusClient client = new TusClient();
-        client.setUploadCreationURL(new URL(url));
-        client.enableResuming(new TusURLMemoryStore());
-        client.setHeaders(new HashMap<String, String>() {{
-            put("X-Token", token);
-        }});
-        return client;
     }
 
     @Bean

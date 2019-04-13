@@ -1,7 +1,5 @@
 package io.pozhidaev.sisyphusClient.configuration;
 
-import io.pozhidaev.sisyphusClient.utils.Whitebox;
-import io.tus.java.client.TusClient;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.messaging.Message;
@@ -12,7 +10,6 @@ import reactor.core.publisher.FluxSink;
 
 import java.io.File;
 import java.io.IOException;
-import java.net.MalformedURLException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -29,33 +26,6 @@ import static org.mockito.Mockito.*;
 @RunWith(SpringRunner.class)
 public class SisyphusClientConfigurationTest {
 
-    @Test
-    public void onInit() throws IOException {
-        final String test_onInit = Files.createTempDirectory("test_onInit").toString();
-        final SisyphusClientConfiguration sisyphusClientConfiguration = new SisyphusClientConfiguration();
-        sisyphusClientConfiguration.setCompletedFolder(test_onInit + "/c");
-        sisyphusClientConfiguration.setSourceFolder(test_onInit + "/s");
-        sisyphusClientConfiguration.onInit();
-    }
-
-    @Test(expected = IOException.class)
-    public void onInit_exception() throws IOException {
-        final Path test_completedFolder = Files.createTempDirectory("test_onInit_exception");
-        final SisyphusClientConfiguration sisyphusClientConfiguration = new SisyphusClientConfiguration();
-        sisyphusClientConfiguration.setCompletedFolder(test_completedFolder.toString());
-        sisyphusClientConfiguration.setSourceFolder(test_completedFolder.toString());
-        sisyphusClientConfiguration.onInit();
-    }
-
-    @Test
-    public void completedFolder() throws IOException {
-        final SisyphusClientConfiguration sisyphusClientConfiguration = new SisyphusClientConfiguration();
-        final Path test_completedFolder = Files.createTempDirectory("test_completedFolder");
-        final String tmp = test_completedFolder.toAbsolutePath().toString();
-        sisyphusClientConfiguration.setCompletedFolder(tmp);
-        sisyphusClientConfiguration.completedFolder();
-        assertEquals(test_completedFolder, sisyphusClientConfiguration.completedFolder());
-    }
 
     @Test
     public void sourceFolder() throws IOException {
@@ -93,29 +63,6 @@ public class SisyphusClientConfigurationTest {
         final String tmp = test_sourceFolder.toAbsolutePath().toString();
         sisyphusClientConfiguration.setSourceFolder(Paths.get(tmp, "test").toString());
         sisyphusClientConfiguration.sourceFolder();
-    }
-
-    @Test
-    public void tusUploadConsumer() throws IOException {
-        final Path test = Files.createTempFile("test", "");
-        final SisyphusClientConfiguration sisyphusClientConfiguration = new SisyphusClientConfiguration();
-        sisyphusClientConfiguration.tusUploadConsumer().apply(test);
-    }
-
-    @Test(expected = RuntimeException.class)
-    public void tusUploadConsumer_exception() {
-        final SisyphusClientConfiguration sisyphusClientConfiguration = new SisyphusClientConfiguration();
-        sisyphusClientConfiguration.tusUploadConsumer().apply(Paths.get("/not_existed_file"));
-    }
-
-    @Test
-    public void tusClient() throws MalformedURLException {
-        final SisyphusClientConfiguration configuration = new SisyphusClientConfiguration();
-        configuration.setUrl("http://test/");
-        configuration.setToken("token_test");
-        final TusClient tusClient = configuration.tusClient();
-
-        assertEquals(Objects.requireNonNull(tusClient.getHeaders()).get("X-Token"), "token_test");
     }
 
     @Test

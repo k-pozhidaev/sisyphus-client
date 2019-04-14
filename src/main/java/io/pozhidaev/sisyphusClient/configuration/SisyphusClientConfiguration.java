@@ -1,6 +1,8 @@
 package io.pozhidaev.sisyphusClient.configuration;
 
 import io.pozhidaev.sisyphusClient.component.TusdUpload;
+import io.pozhidaev.sisyphusClient.domain.FileStorage;
+import io.pozhidaev.sisyphusClient.domain.MemoryFileStore;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
@@ -68,6 +70,11 @@ public class SisyphusClientConfiguration {
             .baseUrl(getUrl())
             .defaultHeaders(httpHeaders -> httpHeaders.add("X-Token", token))
             .build();
+    }
+
+    @Bean
+    FileStorage fileStorage(){
+        return new MemoryFileStore();
     }
 
     @Bean

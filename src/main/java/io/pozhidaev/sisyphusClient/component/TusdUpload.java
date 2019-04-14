@@ -38,6 +38,7 @@ public class TusdUpload {
     private Integer chunkSize;
     private Integer[] intervals;
     private Options options;
+    private FileStorage fileStorage;
 
     private URI patchUri;
     private long lastChunkUploaded;
@@ -148,10 +149,9 @@ public class TusdUpload {
 
     String calcFingerprint() {
         return String.format(
-                "%s-%s-%d",
+                "%s-%s",
                 path.toAbsolutePath(),
-                readFileSizeQuietly(),
-                readLastModifiedQuietly()
+                readFileSizeQuietly()
         );
     }
 

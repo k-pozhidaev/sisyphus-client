@@ -1,5 +1,6 @@
 package io.pozhidaev.sisyphusClient.component;
 
+import io.pozhidaev.sisyphusClient.domain.FileStorage;
 import io.pozhidaev.sisyphusClient.domain.Options;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,6 +26,7 @@ public class TusUploader implements ApplicationRunner {
     private Supplier<WebClient> webClientFactoryMethod;
     private Supplier<Integer> chunkSize;
     private TusdUpload.Builder tusdUploadBuilder;
+    private FileStorage fileStorage;
 
     @Autowired
     public void setCreatedFileStream(final Flux<Path> createdFileStream) {
@@ -45,6 +47,12 @@ public class TusUploader implements ApplicationRunner {
     public void tusdUploadBuilder(final TusdUpload.Builder tusdUploadBuilder) {
         this.tusdUploadBuilder = tusdUploadBuilder;
     }
+
+    @Autowired
+    public void setFileStorage(FileStorage fileStorage) {
+        this.fileStorage = fileStorage;
+    }
+
 
     @Override
     public void run(final ApplicationArguments args) {
@@ -71,6 +79,7 @@ public class TusUploader implements ApplicationRunner {
         return tusdUploadBuilder
             .path(path)
             .options(options)
+            .fileStorage(fileStorage)
             .client(webClientFactoryMethod.get())
             .chunkSize(chunkSize.get())
             .build();

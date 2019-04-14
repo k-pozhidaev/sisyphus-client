@@ -10,5 +10,8 @@ public interface UploadFile {
     Long getFileSize();
     void setFileSize(final Long fileSize);
 
+    Long getUploadLength();
+    void setUploadLength(final Long uploadLength);
+
 
 }

@@ -44,14 +44,6 @@ public class TusdUpload {
     private long lastChunkUploaded;
     private long uploadedLength;
 
-    public void setFile(final Path path) {
-        this.path = path;
-    }
-
-    public void setClient(WebClient client) {
-        this.client = client;
-    }
-
 
     Mono<TusdUpload> post(){
         return doPost()

@@ -279,8 +279,7 @@ public class TusdUploadTest {
     @Test(expected = FileSizeReadException.class)
     public void readFileSizeQuietly_exception() {
         final Path file = Paths.get("not_exists/file");
-        final TusdUpload tusUploader = TusdUpload.builder().build();
-        tusUploader.setFile(file);
+        final TusdUpload tusUploader = TusdUpload.builder().path(file).build();
         tusUploader.readFileSizeQuietly();
         fail();
     }
@@ -306,15 +305,13 @@ public class TusdUploadTest {
 
         final TusdUpload tusdUpload = mock(TusdUpload.class);
         when(tusdUpload.patch(0, (byte) 0)).thenCallRealMethod();
-        doCallRealMethod().when(tusdUpload).setClient(webClient);
         when(tusdUpload.dataBufferFlux(0)).thenReturn(Flux.just(stringBuffer("foo"), stringBuffer("bar")));
         when(tusdUpload.readFileSizeQuietly()).thenReturn(6L);
         setInternalState(tusdUpload, "chunkSize", 1024);
         setInternalState(tusdUpload, "patchUri", server.url("/upload").uri());
         setInternalState(tusdUpload, "intervals", new Integer[] {500, 1000});
         System.out.println(server.url("/upload").uri());
-
-        tusdUpload.setClient(webClient);
+        setInternalState(tusdUpload, "client", webClient);
 
         tusdUpload.patch(0, (byte) 0).block();
 
@@ -333,16 +330,16 @@ public class TusdUploadTest {
         final TusdUpload tusdUpload = mock(TusdUpload.class);
         when(tusdUpload.patch(0, (byte) 0)).thenCallRealMethod();
         when(tusdUpload.patch(0, (byte) 1)).thenCallRealMethod();
-        doCallRealMethod().when(tusdUpload).setClient(webClient);
         when(tusdUpload.dataBufferFlux(0)).thenReturn(Flux.just(stringBuffer("foo"), stringBuffer("bar")));
         when(tusdUpload.readFileSizeQuietly()).thenReturn(6L);
+
+        setInternalState(tusdUpload, "client", webClient);
 
         setInternalState(tusdUpload, "chunkSize", 1024);
         setInternalState(tusdUpload, "patchUri", server.url("/upload").uri());
         setInternalState(tusdUpload, "intervals", new Integer[] {500});
         System.out.println(server.url("/upload").uri());
 
-        tusdUpload.setClient(webClient);
 
         tusdUpload.patch(0, (byte) 0).block();
 
@@ -361,7 +358,6 @@ public class TusdUploadTest {
         final TusdUpload tusdUpload = mock(TusdUpload.class);
         when(tusdUpload.patch(0, (byte) 0)).thenCallRealMethod();
         when(tusdUpload.patch(0, (byte) 1)).thenCallRealMethod();
-        doCallRealMethod().when(tusdUpload).setClient(webClient);
         when(tusdUpload.dataBufferFlux(0)).thenReturn(Flux.just(stringBuffer("foo"), stringBuffer("bar")));
         when(tusdUpload.readFileSizeQuietly()).thenReturn(6L);
 
@@ -369,7 +365,7 @@ public class TusdUploadTest {
         setInternalState(tusdUpload, "patchUri", server.url("/upload").uri());
         setInternalState(tusdUpload, "intervals", new Integer[] {500});
 
-        tusdUpload.setClient(webClient);
+        setInternalState(tusdUpload, "client", webClient);
 
         tusdUpload.patch(0, (byte) 0).block();
 
@@ -414,9 +410,8 @@ public class TusdUploadTest {
         when(tusdUpload.readFileSizeQuietly()).thenReturn(2028L);
         when(tusdUpload.generateMetadataQuietly()).thenReturn("test test,test2 test");
         when(tusdUpload.readContentTypeQuietly()).thenReturn("text/xml");
-        doCallRealMethod().when(tusdUpload).setClient(webClient);
 
-        tusdUpload.setClient(webClient);
+        setInternalState(tusdUpload, "client", webClient);
 
         tusdUpload.doPost().block();
         final RecordedRequest request = server.takeRequest();
@@ -436,13 +431,4 @@ public class TusdUploadTest {
         buffer.write(value);
         return buffer;
     }
-//    private FileAttribute<Set<PosixFilePermission>> fileAttributeReadOnly() {
-//        Set<PosixFilePermission> readOnly = PosixFilePermissions.fromString("r--r--r--");
-//        return PosixFilePermissions.asFileAttribute(readOnly);
-//    }
-//
-//    private FileAttribute<Set<PosixFilePermission>> fileAttributeWriteOnly() {
-//        Set<PosixFilePermission> readOnly = PosixFilePermissions.fromString("-w--w--w-");
-//        return PosixFilePermissions.asFileAttribute(readOnly);
-//    }
 }

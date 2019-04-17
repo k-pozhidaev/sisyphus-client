@@ -3,17 +3,17 @@ package io.pozhidaev.sisyphusClient.domain;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
-import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class MemoryFileStore implements FileStorage {
-    private Map<String, UploadFile> processFileStore;
-    private Map<String, UploadFile> failedFileStore;
-    private Map<String, UploadFile> completedFileStore;
+    private ConcurrentHashMap<String, UploadFile> processFileStore;
+    private ConcurrentHashMap<String, UploadFile> failedFileStore;
+    private ConcurrentHashMap<String, UploadFile> completedFileStore;
 
     public MemoryFileStore() {
         processFileStore = new ConcurrentHashMap<>();
+        failedFileStore = new ConcurrentHashMap<>();
         completedFileStore = new ConcurrentHashMap<>();
     }
 

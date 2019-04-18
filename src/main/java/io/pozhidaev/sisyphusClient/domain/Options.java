@@ -25,7 +25,7 @@ public class Options {
     private List<String> extension;
     private Long maxSize;
 
-    static <T> Optional<T> getZeroElementIfExists(final List<T> list) {
+    private static <T> Optional<T> getZeroElementIfExists(final List<T> list) {
         if (list.size() > 0) {
             return Optional.of(list.get(0));
         }

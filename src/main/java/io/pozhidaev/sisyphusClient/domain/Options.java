@@ -1,9 +1,6 @@
 package io.pozhidaev.sisyphusClient.domain;
 
-import lombok.EqualsAndHashCode;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
-import lombok.ToString;
+import lombok.*;
 import org.springframework.web.reactive.function.client.ClientResponse;
 
 import java.util.Arrays;
@@ -11,6 +8,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Setter
+@Getter
 @ToString
 @NoArgsConstructor
 @EqualsAndHashCode

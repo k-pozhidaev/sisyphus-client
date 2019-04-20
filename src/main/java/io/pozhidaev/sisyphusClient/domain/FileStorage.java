@@ -6,7 +6,9 @@ public interface FileStorage {
 
     Optional<UploadFile> getProcessUpload(final String fingerprint);
 
-    FileStorage addUpload(
+    Optional<UploadFile> getFailed(final String fingerprint);
+
+    FileStorage addUploadIfAbsent(
             final String fingerprint,
             final Long lastModified,
             final String contentType,

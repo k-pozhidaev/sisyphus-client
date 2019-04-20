@@ -44,11 +44,38 @@ public class TusdUpload {
     private long lastChunkUploaded;
     private long uploadedLength;
 
+    public Mono<TusdUpload> startOrResume(){
+        return fileStorage
+                .getFailed(calcFingerprint())
+                .filter(u -> options.getResumable().contains("1.0.0"))
+                .map(u -> head())
+                .orElse(post());
+    }
+
+    Mono<TusdUpload> head() {
+        return doHead().then(Mono.just(this));
+    }
+
+    private Mono<ClientResponse> doHead() {
+        return client
+                .head()
+                .uri(patchUri)
+                .exchange();
+    }
 
     Mono<TusdUpload> post(){
         return doPost()
                 .doOnNext(this::handleResponse)
                 .doOnNext(cr -> patchUri = requireNonNull(cr.headers().asHttpHeaders().getLocation()))
+                .doOnNext(clientResponse ->
+                    fileStorage.addUploadIfAbsent(
+                            calcFingerprint(),
+                            readLastModifiedQuietly(),
+                            readContentTypeQuietly(),
+                            readFileSizeQuietly(),
+                            uploadedLength = 0
+                    )
+                )
                 .then(Mono.just(this))
             ;
     }

@@ -9,7 +9,7 @@ public class LocalFileStoreTest {
     @Test
     public void addUpload() {
         final MemoryFileStore store = new MemoryFileStore();
-        store.addUpload("test", 149L, "test/test", 547L, 111L);
+        store.addUploadIfAbsent("test", 149L, "test/test", 547L, 111L);
         store.getProcessUpload("test")
             .map(item -> {
                 assertEquals(item.getContentType(), "test/test");

@@ -1,5 +1,6 @@
 package io.pozhidaev.sisyphusClient.component;
 
+import io.pozhidaev.sisyphusClient.domain.FileStorage;
 import io.pozhidaev.sisyphusClient.domain.exceptions.*;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.mockwebserver.MockResponse;
@@ -8,6 +9,7 @@ import okhttp3.mockwebserver.RecordedRequest;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.Mock;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.core.io.buffer.DataBufferFactory;
 import org.springframework.core.io.buffer.DefaultDataBufferFactory;
@@ -390,11 +392,18 @@ public class TusdUploadTest {
 
     @Test
     public void post(){
+        final FileStorage fileStorage = mock(FileStorage.class);
+        when(fileStorage.addUploadIfAbsent("test", 123654789L, "test/test", 852369741L, 0L)).thenReturn(fileStorage);
         final ClientResponse response = ClientResponse.create(HttpStatus.CREATED).header("location", "test://test").build();
         final TusdUpload tusdUpload = mock(TusdUpload.class);
         when(tusdUpload.post()).thenCallRealMethod();
         when(tusdUpload.doPost()).thenReturn(Mono.just(response));
+        when(tusdUpload.calcFingerprint()).thenReturn("test");
+        when(tusdUpload.readLastModifiedQuietly()).thenReturn(123654789L);
+        when(tusdUpload.readContentTypeQuietly()).thenReturn("test/test");
+        when(tusdUpload.readFileSizeQuietly()).thenReturn(852369741L);
         doNothing().when(tusdUpload).handleResponse(response);
+        setInternalState(tusdUpload, "fileStorage", fileStorage);
         final TusdUpload upload = tusdUpload.post().block();
         assertNotNull(upload);
         final URI patchUri = (URI) getInternalState(upload, "patchUri");

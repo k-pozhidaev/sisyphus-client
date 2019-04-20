@@ -18,7 +18,7 @@ public class MemoryFileStore implements FileStorage {
     }
 
     @Override
-    public MemoryFileStore addUpload(
+    public MemoryFileStore addUploadIfAbsent(
         final String fingerprint,
         final Long lastModified,
         final String contentType,
@@ -29,12 +29,15 @@ public class MemoryFileStore implements FileStorage {
         return this;
     }
 
+
     @Override
     public Optional<UploadFile> getProcessUpload(final String fingerprint){
-        if (processFileStore.containsKey(fingerprint)) {
-            return Optional.of(processFileStore.get(fingerprint));
-        }
-        return Optional.empty();
+        return Optional.ofNullable(processFileStore.get(fingerprint));
+    }
+
+    @Override
+    public Optional<UploadFile> getFailed(final String fingerprint) {
+        return Optional.ofNullable(failedFileStore.get(fingerprint));
     }
 
     @Override
